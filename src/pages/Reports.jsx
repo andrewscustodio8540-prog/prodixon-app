@@ -185,62 +185,64 @@ export default function Reports() {
                     </div>
                 </div>
 
-                <table className="custom-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Data / Turno</th>
-                            <th>Máquina</th>
-                            <th>Operador</th>
-                            <th>Peça</th>
-                            <th>Produção Líq.</th>
-                            <th>OEE</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredReports.map((rp, index) => (
-                            <tr key={rp.id} className="animate-slide-up" style={{ animationDelay: (index * 50) + 'ms' }}>
-                                <td><span className="text-secondary">#{rp.id}</span></td>
-                                <td>
-                                    <div className="fw-600">{rp.date}</div>
-                                    <div className="text-sm text-secondary">{rp.shift}</div>
-                                </td>
-                                <td><strong>{rp.machine}</strong></td>
-                                <td>{rp.operator}</td>
-                                <td>{rp.part}</td>
-                                <td>{rp.net} un</td>
-                                <td>
-                                    <span className={"badge " + (rp.oee >= 90 ? 'badge-success' : rp.oee >= 70 ? 'badge-primary' : 'badge-danger')}>
-                                        {rp.oee}%
-                                    </span>
-                                </td>
-                                <td>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button
-                                            className="btn-icon"
-                                            title="Ver Detalhes"
-                                            onClick={() => {
-                                                const scStr = Array.isArray(rp.scraps) && rp.scraps.length > 0 ? rp.scraps.map(s => `${s.quantity} un: ${s.reason}`).join(', ') : 'Nenhum';
-                                                const dwStr = Array.isArray(rp.downtimes) && rp.downtimes.length > 0 ? rp.downtimes.map(d => `${d.minutes} min: ${d.reason}`).join(', ') : 'Nenhuma';
-                                                alert(`DETALHES DO TURNO #${rp.id}\n\nData: ${rp.date} | ${rp.shift}\nMáquina: ${rp.machine}\nOperador: ${rp.operator}\nPeça: ${rp.part}\n\n-- PRODUÇÃO --\nLíquida: ${rp.net} un (OEE: ${rp.oee}%)\nBruta: ${rp.produced_gross} un\nRefugo Total: ${rp.refuse} un\n\n-- MOTIVOS DE REFUGO --\n${scStr}\n\n-- PARADAS DE MÁQUINA --\n${dwStr}\n\n-- OBSERVAÇÕES --\n${rp.notes || 'Nenhuma'}`);
-                                            }}
-                                        >
-                                            <FileText size={18} className="text-primary" />
-                                        </button>
-                                        <button
-                                            className="btn-icon hover-danger"
-                                            title="Excluir Turno"
-                                            onClick={() => handleDeleteReport(rp.originalId)}
-                                        >
-                                            <Trash2 size={18} className="text-danger" />
-                                        </button>
-                                    </div>
-                                </td>
+                <div className="table-responsive">
+                    <table className="custom-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data / Turno</th>
+                                <th>Máquina</th>
+                                <th>Operador</th>
+                                <th>Peça</th>
+                                <th>Produção Líq.</th>
+                                <th>OEE</th>
+                                <th>Ações</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredReports.map((rp, index) => (
+                                <tr key={rp.id} className="animate-slide-up" style={{ animationDelay: (index * 50) + 'ms' }}>
+                                    <td><span className="text-secondary">#{rp.id}</span></td>
+                                    <td>
+                                        <div className="fw-600">{rp.date}</div>
+                                        <div className="text-sm text-secondary">{rp.shift}</div>
+                                    </td>
+                                    <td><strong>{rp.machine}</strong></td>
+                                    <td>{rp.operator}</td>
+                                    <td>{rp.part}</td>
+                                    <td>{rp.net} un</td>
+                                    <td>
+                                        <span className={"badge " + (rp.oee >= 90 ? 'badge-success' : rp.oee >= 70 ? 'badge-primary' : 'badge-danger')}>
+                                            {rp.oee}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                className="btn-icon"
+                                                title="Ver Detalhes"
+                                                onClick={() => {
+                                                    const scStr = Array.isArray(rp.scraps) && rp.scraps.length > 0 ? rp.scraps.map(s => `${s.quantity} un: ${s.reason}`).join(', ') : 'Nenhum';
+                                                    const dwStr = Array.isArray(rp.downtimes) && rp.downtimes.length > 0 ? rp.downtimes.map(d => `${d.minutes} min: ${d.reason}`).join(', ') : 'Nenhuma';
+                                                    alert(`DETALHES DO TURNO #${rp.id}\n\nData: ${rp.date} | ${rp.shift}\nMáquina: ${rp.machine}\nOperador: ${rp.operator}\nPeça: ${rp.part}\n\n-- PRODUÇÃO --\nLíquida: ${rp.net} un (OEE: ${rp.oee}%)\nBruta: ${rp.produced_gross} un\nRefugo Total: ${rp.refuse} un\n\n-- MOTIVOS DE REFUGO --\n${scStr}\n\n-- PARADAS DE MÁQUINA --\n${dwStr}\n\n-- OBSERVAÇÕES --\n${rp.notes || 'Nenhuma'}`);
+                                                }}
+                                            >
+                                                <FileText size={18} className="text-primary" />
+                                            </button>
+                                            <button
+                                                className="btn-icon hover-danger"
+                                                title="Excluir Turno"
+                                                onClick={() => handleDeleteReport(rp.originalId)}
+                                            >
+                                                <Trash2 size={18} className="text-danger" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <style>{`
@@ -252,11 +254,12 @@ export default function Reports() {
         .table-toolbar { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
         .filters-group { display: flex; gap: 1rem; }
         
-        .search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); width: 300px; }
+        .search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); width: 300px; max-width: 100%; }
         .input-transparent { background: transparent; border: none; color: white; outline: none; width: 100%; }
         .filter-btn { padding: 0.5rem 1rem; font-size: 0.85rem; }
         
-        .custom-table { width: 100%; border-collapse: collapse; }
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+        .custom-table { width: 100%; border-collapse: collapse; min-width: 800px; }
         .custom-table th { text-align: left; padding: 1rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; border-bottom: 2px solid var(--border-color); }
         .custom-table td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.95rem; }
         .custom-table tbody tr:hover { background: rgba(255,255,255,0.02); }

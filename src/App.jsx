@@ -3,14 +3,17 @@ import { AuthProvider } from './context/AuthContext';
 import AppLayout from './layouts/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// View Imports (To be created)
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Machines from './pages/Machines';
 import Operators from './pages/Operators';
 import ShiftEntry from './pages/ShiftEntry';
 import Reports from './pages/Reports';
 import Parts from './pages/Parts';
+import Settings from './pages/Settings';
+import Team from './pages/Team';
+import Pricing from './pages/Pricing';
 
 function App() {
   return (
@@ -18,6 +21,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/pricing" element={<Pricing />} />
 
           <Route path="/" element={
             <ProtectedRoute>
@@ -31,6 +36,8 @@ function App() {
             <Route path="parts" element={<Parts />} />
             <Route path="shift-entry" element={<ShiftEntry />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="team" element={<Team />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -8,5 +8,12 @@ export default function ProtectedRoute({ children }) {
         return <Navigate to="/login" replace />;
     }
 
+    // Check subscription status
+    const isSubscribed = user.subscription_status === 'active' || user.subscription_status === 'trialing';
+
+    if (!isSubscribed) {
+        return <Navigate to="/pricing" replace />;
+    }
+
     return children;
 }

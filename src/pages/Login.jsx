@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Factory, Lock, Mail, ArrowRight } from 'lucide-react';
 
@@ -93,7 +93,7 @@ export default function Login() {
         </form>
 
         <div className="login-footer">
-          Desenvolvido com padrão corporativo multitenant.
+          Não tem uma conta? <Link to="/register" className="text-primary" style={{ fontWeight: '500' }}>Criar Conta Grátis</Link>
         </div>
       </div>
 

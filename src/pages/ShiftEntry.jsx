@@ -25,14 +25,17 @@ export default function ShiftEntry() {
         scraps: []
     });
 
-    const DOWNTIME_CATEGORIES = ['Manutenção', 'Utilidades', 'Operacional'];
-    const DOWNTIME_REASONS = {
+    const [downtimeCategories, setDowntimeCategories] = useState(['Manutenção', 'Utilidades', 'Operacional', 'Setup', 'Outros']);
+    const [downtimeReasonsDb, setDowntimeReasonsDb] = useState([]);
+    const [scrapReasonsDb, setScrapReasonsDb] = useState([]);
+
+    const FALLBACK_DOWNTIME = {
         'Manutenção': ['Fresa', 'Alarme máquina', 'Prensa pneumática', 'Lavadora', 'Troca de inserto/ferramenta'],
         'Utilidades': ['Ar Comprimido/Energia', 'Falta de embalagem', 'Fluído refrigerante', 'Falta de Inserto/ferramenta', 'Falta de instrumentos', 'Falta de componentes almoxarifado', 'Falta peças brutas'],
         'Operacional': ['Limpeza', 'Refeição', 'Correção de medida', 'Falta de operador', 'Setup/Preparação', 'Reunião Treinamento', 'Outros']
     };
 
-    const SCRAP_REASONS = [
+    const FALLBACK_SCRAP = [
         'Porosidade', 'Usinagem deslocada', 'Dimensional', 'Falta de material',
         'Falha de Usinagem', 'Rebarba', 'Solda fria', 'Trinca', 'Batida',
         'Agarre', 'Vazamento Alto', 'Vazamento - impregna', 'Outros'
@@ -46,10 +49,12 @@ export default function ShiftEntry() {
 
     const fetchInitialData = async () => {
         try {
-            const [machinesRes, operatorsRes, partsRes] = await Promise.all([
+            const [machinesRes, operatorsRes, partsRes, downtimeRes, scrapRes] = await Promise.all([
                 supabase.from('machines').select('*').eq('status', 'Ativa'),
                 supabase.from('operators').select('*').eq('active', true),
-                supabase.from('parts').select('*')
+                supabase.from('parts').select('*'),
+                supabase.from('downtime_reasons').select('*').eq('active', true),
+                supabase.from('scrap_reasons').select('*').eq('active', true)
             ]);
 
             if (machinesRes.error) throw machinesRes.error;
@@ -59,6 +64,15 @@ export default function ShiftEntry() {
             setMachines(machinesRes.data || []);
             setOperators(operatorsRes.data || []);
             setParts(partsRes.data || []);
+
+            // Generate distinct categories
+            const fetchedDowntimes = downtimeRes.data || [];
+            if (fetchedDowntimes.length > 0) {
+                const uniqueCats = [...new Set(fetchedDowntimes.map(d => d.category))];
+                setDowntimeCategories(uniqueCats);
+            }
+            setDowntimeReasonsDb(fetchedDowntimes);
+            setScrapReasonsDb(scrapRes.data || []);
         } catch (error) {
             console.error("Erro ao carregar dados iniciais", error);
         }
@@ -368,7 +382,7 @@ export default function ShiftEntry() {
                                             required
                                         >
                                             <option value="">Selecione o motivo...</option>
-                                            {SCRAP_REASONS.map(reason => (
+                                            {(scrapReasonsDb.length > 0 ? scrapReasonsDb.map(r => r.reason) : FALLBACK_SCRAP).map(reason => (
                                                 <option key={reason} value={reason}>{reason}</option>
                                             ))}
                                         </select>
@@ -428,7 +442,7 @@ export default function ShiftEntry() {
                                             required
                                         >
                                             <option value="">Selecione...</option>
-                                            {DOWNTIME_CATEGORIES.map(cat => (
+                                            {downtimeCategories.map(cat => (
                                                 <option key={cat} value={cat}>{cat}</option>
                                             ))}
                                         </select>
@@ -444,9 +458,12 @@ export default function ShiftEntry() {
                                             disabled={!dw.category}
                                         >
                                             <option value="">Selecione o motivo...</option>
-                                            {dw.category && DOWNTIME_REASONS[dw.category].map(reason => (
-                                                <option key={reason} value={reason}>{reason}</option>
-                                            ))}
+                                            {dw.category && (downtimeReasonsDb.length > 0
+                                                ? downtimeReasonsDb.filter(r => r.category === dw.category).map(r => r.reason)
+                                                : (FALLBACK_DOWNTIME[dw.category] || []))
+                                                .map(reason => (
+                                                    <option key={reason} value={reason}>{reason}</option>
+                                                ))}
                                         </select>
                                     </div>
 

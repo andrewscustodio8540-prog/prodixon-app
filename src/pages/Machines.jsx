@@ -160,69 +160,71 @@ export default function Machines() {
           </div>
         </div>
 
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>Cód</th>
-              <th>Nome da Máquina</th>
-              <th>Status</th>
-              <th className="text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {machines.map((mq, index) => (
-              mq.id === editingId ? (
-                <tr key={`edit-${mq.id}`} className="animate-fade-in" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                  <td>
-                    <input type="text" className="input-field" value={editForm.code} onChange={e => setEditForm(prev => ({ ...prev, code: e.target.value }))} style={{ width: '100px', padding: '0.4rem' }} />
-                  </td>
-                  <td>
-                    <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))} style={{ padding: '0.4rem' }} />
-                  </td>
-                  <td>
-                    <select className="input-field" value={editForm.status} onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))} style={{ padding: '0.4rem', width: '120px' }}>
-                      <option value="Ativa">Ativa</option>
-                      <option value="Inativa">Inativa</option>
-                    </select>
-                  </td>
-                  <td className="text-right actions-cell">
-                    <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={() => handleSaveEdit(mq.id)}>Salvar</button>
-                    <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={handleCancelEdit}>Cancelar</button>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={mq.id} className="animate-slide-up" style={{ animationDelay: (index * 10) + 'ms' }}>
-                  <td><strong>{mq.code}</strong></td>
-                  <td>
-                    <div className="flex-center gap-2">
-                      <Factory size={16} className="text-primary" />
-                      {mq.name}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={"badge " + (mq.status === 'Ativa' ? 'badge-success' : 'badge-danger')}>
-                      {mq.status}
-                    </span>
-                  </td>
-                  <td className="text-right actions-cell">
-                    <button className="btn-icon" onClick={() => handleEdit(mq)} title="Editar"><Edit2 size={16} /></button>
-                    <button className="btn-icon text-danger" onClick={() => handleDelete(mq.id, mq.name)} title="Excluir"><Trash2 size={16} /></button>
-                  </td>
-                </tr>
-              )
-            ))}
-            {machines.length === 0 && !loading && (
+        <div className="table-responsive">
+          <table className="custom-table">
+            <thead>
               <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">Nenhuma máquina cadastrada.</td>
+                <th>Cód</th>
+                <th>Nome da Máquina</th>
+                <th>Status</th>
+                <th className="text-right">Ações</th>
               </tr>
-            )}
-            {loading && (
-              <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">Carregando máquinas...</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {machines.map((mq, index) => (
+                mq.id === editingId ? (
+                  <tr key={`edit-${mq.id}`} className="animate-fade-in" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                    <td>
+                      <input type="text" className="input-field" value={editForm.code} onChange={e => setEditForm(prev => ({ ...prev, code: e.target.value }))} style={{ width: '100px', padding: '0.4rem' }} />
+                    </td>
+                    <td>
+                      <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))} style={{ padding: '0.4rem', minWidth: '150px' }} />
+                    </td>
+                    <td>
+                      <select className="input-field" value={editForm.status} onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))} style={{ padding: '0.4rem', width: '120px' }}>
+                        <option value="Ativa">Ativa</option>
+                        <option value="Inativa">Inativa</option>
+                      </select>
+                    </td>
+                    <td className="text-right actions-cell">
+                      <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={() => handleSaveEdit(mq.id)}>Salvar</button>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={handleCancelEdit}>Cancelar</button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={mq.id} className="animate-slide-up" style={{ animationDelay: (index * 10) + 'ms' }}>
+                    <td><strong>{mq.code}</strong></td>
+                    <td>
+                      <div className="flex-center gap-2">
+                        <Factory size={16} className="text-primary" />
+                        {mq.name}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={"badge " + (mq.status === 'Ativa' ? 'badge-success' : 'badge-danger')}>
+                        {mq.status}
+                      </span>
+                    </td>
+                    <td className="text-right actions-cell">
+                      <button className="btn-icon" onClick={() => handleEdit(mq)} title="Editar"><Edit2 size={16} /></button>
+                      <button className="btn-icon text-danger" onClick={() => handleDelete(mq.id, mq.name)} title="Excluir"><Trash2 size={16} /></button>
+                    </td>
+                  </tr>
+                )
+              ))}
+              {machines.length === 0 && !loading && (
+                <tr>
+                  <td colSpan="5" className="text-center py-4 text-muted">Nenhuma máquina cadastrada.</td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td colSpan="5" className="text-center py-4 text-muted">Carregando máquinas...</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <style>{`
@@ -258,6 +260,7 @@ export default function Machines() {
           border-radius: var(--border-radius-md);
           border: 1px solid var(--border-color);
           width: 300px;
+          max-width: 100%;
         }
 
         .input-transparent {
@@ -271,6 +274,13 @@ export default function Machines() {
         .custom-table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 600px;
+        }
+
+        .table-responsive {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
         }
 
         .custom-table th {

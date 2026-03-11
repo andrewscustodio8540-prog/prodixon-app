@@ -9,7 +9,9 @@ import {
   LogOut,
   Menu,
   X,
-  Tag
+  Tag,
+  Settings as SettingsIcon,
+  Shield
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,6 +32,8 @@ export default function AppLayout() {
     { to: '/operators', icon: <Users size={20} />, label: 'Operadores' },
     { to: '/parts', icon: <Tag size={20} />, label: 'Peças' },
     { to: '/reports', icon: <FileBox size={20} />, label: 'Relatórios' },
+    { to: '/team', icon: <Shield size={20} />, label: 'Equipe' },
+    { to: '/settings', icon: <SettingsIcon size={20} />, label: 'Configurações' },
   ];
 
   return (

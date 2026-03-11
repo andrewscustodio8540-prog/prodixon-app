@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Settings, AlertCircle, CheckCircle2, Calendar, Factory } from 'lucide-react';
+import { TrendingUp, Settings, AlertCircle, CheckCircle2, Calendar, Factory, BarChart2, LayoutDashboard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,15 +17,104 @@ export default function Dashboard() {
   const [machineRanking, setMachineRanking] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
-  const [loading, setLoading] = useState(true);
+
+  const [activeTab, setActiveTab] = useState('overview');
+  const [analysisPeriod, setAnalysisPeriod] = useState('daily');
+  const [analysisDate, setAnalysisDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [analysisData, setAnalysisData] = useState({
+    loading: false,
+    overallOee: 0,
+    totalProduced: 0,
+    totalRefuse: 0,
+    shiftBreakdown: []
+  });
+
+  useEffect(() => {
+    if (user?.company_id && activeTab === 'oee_analysis') {
+      fetchAnalysisData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, activeTab, analysisPeriod, analysisDate]);
+
+  const fetchAnalysisData = async () => {
+    setAnalysisData(prev => ({ ...prev, loading: true }));
+    try {
+      const [y, m, d] = analysisDate.split('-');
+      let startDate = new Date(y, m - 1, d);
+      let endDate = new Date(y, m - 1, d);
+
+      if (analysisPeriod === 'weekly') {
+        const day = startDate.getDay();
+        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+        startDate.setDate(diff);
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+      } else if (analysisPeriod === 'monthly') {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      }
+
+      const startStr = startDate.toLocaleDateString('en-CA');
+      const endStr = endDate.toLocaleDateString('en-CA');
+
+      const { data: shiftsData, error: sErr } = await supabase
+        .from('shifts')
+        .select('*, machines(code, name, target_per_shift)')
+        .eq('company_id', user.company_id)
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+      if (sErr) throw sErr;
+
+      let totalProduced = 0;
+      let totalRefuse = 0;
+      let totalTarget = 0;
+      const shiftMap = {};
+
+      shiftsData?.forEach(shift => {
+        const prod = shift.net_production !== undefined ? shift.net_production : Math.max(0, (shift.produced_gross || 0) - (shift.refuse || 0));
+        const ref = shift.refuse || 0;
+        const targ = shift.target || shift.machines?.target_per_shift || 1;
+        const sName = shift.shift_number || 'Sem Turno';
+
+        totalProduced += prod;
+        totalRefuse += ref;
+        totalTarget += targ;
+
+        if (!shiftMap[sName]) shiftMap[sName] = { produced: 0, target: 0, refuse: 0 };
+        shiftMap[sName].produced += prod;
+        shiftMap[sName].target += targ;
+        shiftMap[sName].refuse += ref;
+      });
+
+      const overallOee = totalTarget > 0 ? Math.round((totalProduced / totalTarget) * 100) : 0;
+
+      const shiftBreakdown = Object.entries(shiftMap).map(([name, data]) => ({
+        name,
+        produced: data.produced,
+        refuse: data.refuse,
+        oee: data.target > 0 ? Math.round((data.produced / data.target) * 100) : 0
+      })).sort((a, b) => b.oee - a.oee);
+
+      setAnalysisData({
+        loading: false,
+        overallOee: Math.min(overallOee, 100),
+        totalProduced,
+        totalRefuse,
+        shiftBreakdown
+      });
+    } catch (err) {
+      console.error('Error fetching analysis', err);
+      setAnalysisData(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   useEffect(() => {
     if (user?.company_id) {
       fetchDashboardData(selectedDate);
-    } else {
-      setLoading(false);
     }
-  }, [user, selectedDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, selectedDate]);
 
   const fetchDashboardData = async (dateStr) => {
     try {
@@ -52,8 +141,9 @@ export default function Dashboard() {
       const machinePerformances = {};
 
       shiftsData?.forEach(shift => {
-        totalProduced += shift.net_production;
-        totalRefuse += shift.refuse;
+        const prod = shift.net_production !== undefined ? shift.net_production : Math.max(0, (shift.produced_gross || 0) - (shift.refuse || 0));
+        totalProduced += prod;
+        totalRefuse += shift.refuse || 0;
 
         const mId = shift.machine_id;
         const shiftTarget = shift.target || shift.machines?.target_per_shift || 1;
@@ -66,7 +156,7 @@ export default function Dashboard() {
             target: 0
           };
         }
-        machinePerformances[mId].produced += shift.net_production;
+        machinePerformances[mId].produced += prod;
         machinePerformances[mId].target += shiftTarget;
         totalTargetProcessed += shiftTarget;
       });
@@ -101,8 +191,6 @@ export default function Dashboard() {
 
     } catch (err) {
       console.error("Erro ao carregar Dashboard", err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -110,122 +198,252 @@ export default function Dashboard() {
     <div className="dashboard-container">
       <div className="page-header">
         <div>
-          <h1 className="text-gradient">Visão Geral da Produção</h1>
-          <p className="text-secondary">Acompanhamento em tempo real do turno atual</p>
+          <h1 className="text-gradient">Dashboard de Produção</h1>
+          <p className="text-secondary">Monitore o turno atual e o histórico de eficiência (OEE)</p>
         </div>
-        <div className="header-actions">
-          <div className="search-box date-filter" style={{ width: 'auto', padding: '0.25rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <Calendar size={18} className="text-muted" style={{ marginRight: '8px' }} />
-            <input
-              type="date"
-              className="input-transparent"
-              style={{ colorScheme: 'dark', border: 'none', background: 'transparent', color: 'white', outline: 'none' }}
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-          </div>
+
+        {/* Custom Tab Switcher */}
+        <div className="tab-switcher glass-panel" style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+          <button
+            className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ border: 'none' }}
+            onClick={() => setActiveTab('overview')}
+          >
+            <LayoutDashboard size={18} /> Turno Atual
+          </button>
+          <button
+            className={`btn ${activeTab === 'oee_analysis' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ border: 'none' }}
+            onClick={() => setActiveTab('oee_analysis')}
+          >
+            <BarChart2 size={18} /> Análise Histórica (OEE)
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="kpi-grid">
-        <div className="kpi-card glass-panel animate-slide-up delay-100">
-          <div className="kpi-icon-wrapper success">
-            <TrendingUp size={24} />
-          </div>
-          <div className="kpi-content">
-            <p className="kpi-label">Produção Líquida</p>
-            <h3 className="kpi-value">{stats.totalProduced.toLocaleString()} <span className="text-sm">un</span></h3>
-            <p className="kpi-meta text-success">
-              {((stats.totalProduced / stats.totalTarget) * 100).toFixed(1)}% da Meta
-            </p>
-          </div>
-        </div>
-
-        <div className="kpi-card glass-panel animate-slide-up delay-200">
-          <div className="kpi-icon-wrapper warning">
-            <AlertCircle size={24} />
-          </div>
-          <div className="kpi-content">
-            <p className="kpi-label">Refugo Total</p>
-            <h3 className="kpi-value">{stats.refuse.toLocaleString()} <span className="text-sm">un</span></h3>
-            <p className="kpi-meta text-warning">
-              {stats.totalProduced + stats.refuse > 0 ? ((stats.refuse / (stats.totalProduced + stats.refuse)) * 100).toFixed(1) : 0}% de perda
-            </p>
-          </div>
-        </div>
-
-        <div className="kpi-card glass-panel animate-slide-up delay-300">
-          <div className="kpi-icon-wrapper primary">
-            <CheckCircle2 size={24} />
-          </div>
-          <div className="kpi-content">
-            <p className="kpi-label">OEE Geral</p>
-            <h3 className="kpi-value">{stats.oeeGeneral}%</h3>
-            <div className="progress-bar-container mt-2">
-              <div
-                className="progress-bar primary"
-                style={{ width: stats.oeeGeneral + '%' }}
-              ></div>
+      {activeTab === 'overview' ? (
+        <>
+          <div className="header-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <div className="search-box date-filter" style={{ width: 'auto', padding: '0.25rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Calendar size={18} className="text-muted" style={{ marginRight: '8px' }} />
+              <input
+                type="date"
+                className="input-transparent"
+                style={{ colorScheme: 'dark', border: 'none', background: 'transparent', color: 'white', outline: 'none' }}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
             </div>
           </div>
-        </div>
 
-        <div className="kpi-card glass-panel animate-slide-up delay-300">
-          <div className="kpi-icon-wrapper outline">
-            <Factory size={24} />
-          </div>
-          <div className="kpi-content">
-            <p className="kpi-label">Máquinas Ativas</p>
-            <h3 className="kpi-value">{stats.activeMachines} <span className="text-sm text-secondary">/ {stats.totalMachines}</span></h3>
-            <p className="kpi-meta text-primary">{stats.totalMachines > 0 ? Math.round((stats.activeMachines / stats.totalMachines) * 100) : 0}% em operação</p>
-          </div>
-        </div>
-      </div>
+          {/* KPI Cards */}
+          <div className="kpi-grid">
+            <div className="kpi-card glass-panel animate-slide-up delay-100">
+              <div className="kpi-icon-wrapper success">
+                <TrendingUp size={24} />
+              </div>
+              <div className="kpi-content">
+                <p className="kpi-label">Produção Líquida</p>
+                <h3 className="kpi-value">{stats.totalProduced.toLocaleString()} <span className="text-sm">un</span></h3>
+                <p className="kpi-meta text-success">
+                  {((stats.totalProduced / stats.totalTarget) * 100).toFixed(1)}% da Meta
+                </p>
+              </div>
+            </div>
 
-      {/* Main Charts & Rankings Area */}
-      <div className="dashboard-content">
-        <div className="chart-section glass-panel animate-fade-in delay-200">
-          <h3 className="section-title">Produção x Meta (Turno Atual)</h3>
-          <div className="chart-placeholder">
-            {chartData.length === 0 ? (
-              <p className="text-muted text-center" style={{ width: '100%' }}>Sem dados para exibir.</p>
-            ) : (
-              <div className="bar-chart-mock">
-                {chartData.map((item, i) => {
-                  const actualHeight = Math.min((item.produced / item.target) * 100, 100);
-                  return (
-                    <div key={i} className="bar-group" title={`${item.name} - Prod: ${item.produced} / Meta: ${item.target}`}>
-                      <div className="bar target" style={{ height: '100%' }}></div>
-                      <div className="bar actual" style={{ height: `${actualHeight}%` }}></div>
-                      <span className="bar-label">{item.id}</span>
+            <div className="kpi-card glass-panel animate-slide-up delay-200">
+              <div className="kpi-icon-wrapper warning">
+                <AlertCircle size={24} />
+              </div>
+              <div className="kpi-content">
+                <p className="kpi-label">Refugo Total</p>
+                <h3 className="kpi-value">{stats.refuse.toLocaleString()} <span className="text-sm">un</span></h3>
+                <p className="kpi-meta text-warning">
+                  {stats.totalProduced + stats.refuse > 0 ? ((stats.refuse / (stats.totalProduced + stats.refuse)) * 100).toFixed(1) : 0}% de perda
+                </p>
+              </div>
+            </div>
+
+            <div className="kpi-card glass-panel animate-slide-up delay-300">
+              <div className="kpi-icon-wrapper primary">
+                <CheckCircle2 size={24} />
+              </div>
+              <div className="kpi-content">
+                <p className="kpi-label">OEE Geral</p>
+                <h3 className="kpi-value">{stats.oeeGeneral}%</h3>
+                <div className="progress-bar-container mt-2">
+                  <div
+                    className="progress-bar primary"
+                    style={{ width: stats.oeeGeneral + '%' }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="kpi-card glass-panel animate-slide-up delay-300">
+              <div className="kpi-icon-wrapper outline">
+                <Factory size={24} />
+              </div>
+              <div className="kpi-content">
+                <p className="kpi-label">Máquinas Ativas</p>
+                <h3 className="kpi-value">{stats.activeMachines} <span className="text-sm text-secondary">/ {stats.totalMachines}</span></h3>
+                <p className="kpi-meta text-primary">{stats.totalMachines > 0 ? Math.round((stats.activeMachines / stats.totalMachines) * 100) : 0}% em operação</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Charts & Rankings Area */}
+          <div className="dashboard-content">
+            <div className="chart-section glass-panel animate-fade-in delay-200">
+              <h3 className="section-title">Produção x Meta (Turno Atual)</h3>
+              <div className="chart-placeholder">
+                {chartData.length === 0 ? (
+                  <p className="text-muted text-center" style={{ width: '100%' }}>Sem dados para exibir.</p>
+                ) : (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div className="bar-chart-mock">
+                      {chartData.map((item, i) => {
+                        const actualHeight = Math.min((item.produced / item.target) * 100, 100);
+                        return (
+                          <div key={i} className="bar-group" title={`${item.name} - Prod: ${item.produced} / Meta: ${item.target}`}>
+                            <div className="bar target" style={{ height: '100%' }}></div>
+                            <div className="bar actual" style={{ height: `${actualHeight}%` }}></div>
+                            <span className="bar-label">{item.id}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
 
-        <div className="ranking-section glass-panel animate-fade-in delay-300">
-          <h3 className="section-title">Ranking de Máquinas (Eficiência)</h3>
-          <div className="ranking-list">
-            {machineRanking.length === 0 && <p className="text-muted text-center py-4">Nenhuma produção registrada hoje.</p>}
-            {machineRanking.map((mq, i) => (
-              <div key={i} className="ranking-item">
-                <div className="ranking-pos">#{i + 1}</div>
-                <div className="ranking-info">
-                  <h4>{mq.name}</h4>
-                  <span className="text-secondary">{mq.id}</span>
+                    {/* Legend */}
+                    <div className="chart-legend" style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: 'auto', paddingTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(46, 160, 67, 0.8)' }}></div>
+                        <span className="text-sm font-medium">Meta (Verde)</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'linear-gradient(180deg, #0066ff 0%, #0052cc 100%)' }}></div>
+                        <span className="text-sm font-medium">Produzido (Azul)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ranking-section glass-panel animate-fade-in delay-300">
+              <h3 className="section-title">Ranking de Máquinas (Eficiência)</h3>
+              <div className="ranking-list">
+                {machineRanking.length === 0 && <p className="text-muted text-center py-4">Nenhuma produção registrada hoje.</p>}
+                {machineRanking.map((mq, i) => (
+                  <div key={i} className="ranking-item">
+                    <div className="ranking-pos">#{i + 1}</div>
+                    <div className="ranking-info">
+                      <h4>{mq.name}</h4>
+                      <span className="text-secondary">{mq.id}</span>
+                    </div>
+                    <div className="ranking-score">
+                      <span className={"score-badge " + mq.status}>{mq.eff}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* --- OEE ANALYSIS TAB --- */
+        <div className="oee-analysis-tab animate-fade-in">
+          <div className="filter-bar glass-panel" style={{ display: 'flex', gap: '1rem', padding: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: '150px' }}>
+              <label className="form-label text-sm">Visualizar por</label>
+              <select
+                className="input-field"
+                style={{ padding: '0.5rem 1rem' }}
+                value={analysisPeriod}
+                onChange={(e) => setAnalysisPeriod(e.target.value)}
+              >
+                <option value="daily">Diário (Um dia específico)</option>
+                <option value="weekly">Semanal (Semana da data)</option>
+                <option value="monthly">Mensal (Mês da data)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: '200px' }}>
+              <label className="form-label text-sm">Data de Referência</label>
+              <div className="input-with-icon">
+                <Calendar className="input-icon" size={16} style={{ left: '10px' }} />
+                <input
+                  type={analysisPeriod === 'monthly' ? "month" : "date"}
+                  className="input-field"
+                  style={{ paddingLeft: '2.2rem', padding: '0.5rem 1rem 0.5rem 2.2rem', colorScheme: 'dark' }}
+                  value={analysisPeriod === 'monthly' ? analysisDate.substring(0, 7) : analysisDate}
+                  onChange={(e) => {
+                    let nextVal = e.target.value;
+                    if (analysisPeriod === 'monthly') nextVal += '-01';
+                    setAnalysisDate(nextVal);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {analysisData.loading ? (
+            <div className="text-center py-4"><div className="text-secondary">Carregando dados...</div></div>
+          ) : (
+            <>
+              <div className="kpi-grid" style={{ marginBottom: '2rem' }}>
+                <div className="kpi-card glass-panel" style={{ borderTop: '4px solid var(--primary-color)' }}>
+                  <div className="kpi-content">
+                    <p className="kpi-label">OEE Geral do Período</p>
+                    <h3 className="kpi-value">{analysisData.overallOee}%</h3>
+                    <div className="progress-bar-container mt-2">
+                      <div className={`progress-bar ${analysisData.overallOee >= 80 ? 'success' : analysisData.overallOee >= 50 ? 'warning' : 'danger'}`} style={{ width: analysisData.overallOee + '%' }}></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="ranking-score">
-                  <span className={"score-badge " + mq.status}>{mq.eff}%</span>
+
+                <div className="kpi-card glass-panel">
+                  <div className="kpi-content">
+                    <p className="kpi-label">Produção Líquida</p>
+                    <h3 className="kpi-value text-success">{analysisData.totalProduced.toLocaleString()} un</h3>
+                  </div>
+                </div>
+
+                <div className="kpi-card glass-panel">
+                  <div className="kpi-content">
+                    <p className="kpi-label">Total Refugado</p>
+                    <h3 className="kpi-value text-danger">{analysisData.totalRefuse.toLocaleString()} un</h3>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="shift-breakdown glass-panel" style={{ padding: '1.5rem' }}>
+                <h3 className="section-title">OEE Separado por Turno</h3>
+                {analysisData.shiftBreakdown.length === 0 ? (
+                  <p className="text-center text-muted py-4">Nenhum log de turno encontrado para esse período.</p>
+                ) : (
+                  <div className="grid-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {analysisData.shiftBreakdown.map((shift, i) => (
+                      <div key={i} className="shift-item glass-panel" style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `4px solid ${shift.oee >= 80 ? 'var(--success-color)' : shift.oee >= 50 ? 'var(--warning-color)' : 'var(--danger-color)'}` }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{shift.name}</h4>
+                          <div className="text-sm text-secondary mt-1">Prod Líquida: {shift.produced.toLocaleString()} un | Refugo: {shift.refuse.toLocaleString()} un</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-family-display)' }}>
+                            <span style={{ color: shift.oee >= 80 ? 'var(--success-color)' : shift.oee >= 50 ? 'var(--warning-color)' : 'var(--danger-color)' }}>{shift.oee}%</span>
+                          </div>
+                          <div className="text-secondary text-sm">Eficiência</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
 
       <style>{`
         .dashboard-container {
@@ -370,16 +588,16 @@ export default function Dashboard() {
         }
 
         .bar.target {
-          background: var(--bg-surface-elevated);
+          background: rgba(46, 160, 67, 0.8); /* Green */
           left: 0;
           z-index: 1;
         }
 
         .bar.actual {
-          background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+          background: linear-gradient(180deg, #0066ff 0%, #0052cc 100%); /* Blue */
           right: 0;
           z-index: 2;
-          box-shadow: 0 0 10px var(--primary-glow);
+          box-shadow: 0 0 10px rgba(0, 102, 255, 0.5);
         }
 
         .bar-label {
@@ -448,6 +666,9 @@ export default function Dashboard() {
 
         @media (max-width: 900px) {
           .dashboard-content { grid-template-columns: 1fr; }
+          .page-header { flex-direction: column; align-items: stretch; }
+          .tab-switcher { width: 100%; justify-content: space-between; }
+          .tab-switcher .btn { flex: 1; justify-content: center; }
         }
       `}</style>
     </div>

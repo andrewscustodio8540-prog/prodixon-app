@@ -25,9 +25,25 @@ export const AuthProvider = ({ children }) => {
                 return;
             }
             try {
-                const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
-                if (error) throw error;
-                setUser({ ...authUser, company_id: profile?.company_id, role: profile?.role, full_name: profile?.full_name });
+                // Fetch User Profile
+                const { data: profile, error: profErr } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+                if (profErr) throw profErr;
+
+                // Fetch Company Subscription status
+                let subscriptionData = null;
+                if (profile?.company_id) {
+                    const { data: comp, error: compErr } = await supabase.from('companies').select('subscription_status, subscription_end_date').eq('id', profile.company_id).single();
+                    if (!compErr) subscriptionData = comp;
+                }
+
+                setUser({
+                    ...authUser,
+                    company_id: profile?.company_id,
+                    role: profile?.role,
+                    full_name: profile?.full_name,
+                    subscription_status: subscriptionData?.subscription_status || 'trialing',
+                    subscription_end_date: subscriptionData?.subscription_end_date
+                });
             } catch (err) {
                 console.error("Error loading profile", err);
                 setUser(authUser);
@@ -57,7 +73,7 @@ export const AuthProvider = ({ children }) => {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
                     if (email && password) {
-                        const mockUser = { id: 'mock-1', email, role: 'admin', company_id: 'cmp-001' };
+                        const mockUser = { id: 'mock-1', email, role: 'admin', company_id: 'cmp-001', subscription_status: 'active' };
                         setUser(mockUser);
                         localStorage.setItem('mockUser', JSON.stringify(mockUser));
                         resolve({ user: mockUser });
