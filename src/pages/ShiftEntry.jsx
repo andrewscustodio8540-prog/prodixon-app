@@ -301,9 +301,11 @@ export default function ShiftEntry() {
                                 required
                             >
                                 <option value="">Selecione o operador...</option>
-                                {operators.map(op => (
-                                    <option key={op.id} value={op.id}>{op.registration_code} - {op.name}</option>
-                                ))}
+                                {operators
+                                    .filter(op => formData.shiftPreset === 'custom' ? true : op.shift === formData.shiftPreset)
+                                    .map(op => (
+                                        <option key={op.id} value={op.id}>{op.registration_code} - {op.name}</option>
+                                    ))}
                             </select>
                         </div>
                     </div>

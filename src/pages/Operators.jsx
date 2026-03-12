@@ -7,10 +7,17 @@ export default function Operators() {
   const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const [newOperator, setNewOperator] = useState({ registration_code: '', name: '' });
+  const [newOperator, setNewOperator] = useState({ registration_code: '', name: '', shift: '1' });
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ registration_code: '', name: '', active: true });
+  const [editForm, setEditForm] = useState({ registration_code: '', name: '', active: true, shift: '1' });
   const { user } = useAuth();
+
+  const SHIFT_OPTIONS = [
+    { value: '1', label: 'Turno 1' },
+    { value: '2', label: 'Turno 2' },
+    { value: '3', label: 'Turno 3' },
+    { value: 'comercial', label: 'Comercial' }
+  ];
 
   useEffect(() => {
     if (user?.company_id) {
@@ -49,6 +56,7 @@ export default function Operators() {
           company_id: user.company_id,
           registration_code: newOperator.registration_code,
           name: newOperator.name,
+          shift: newOperator.shift,
           active: true
         }])
         .select();
@@ -56,7 +64,7 @@ export default function Operators() {
       if (error) throw error;
       setOperators([data[0], ...operators]);
       setIsAdding(false);
-      setNewOperator({ registration_code: '', name: '' });
+      setNewOperator({ registration_code: '', name: '', shift: '1' });
     } catch (err) {
       console.error("Erro ao adicionar operador", err);
       alert(`Erro ao adicionar operador: ${err.message || 'Verifique se a matrícula já existe ou se você tem permissão.'}`);
@@ -65,12 +73,12 @@ export default function Operators() {
 
   const handleEdit = (operator) => {
     setEditingId(operator.id);
-    setEditForm({ registration_code: operator.registration_code, name: operator.name, active: operator.active });
+    setEditForm({ registration_code: operator.registration_code, name: operator.name, active: operator.active, shift: operator.shift || '1' });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditForm({ registration_code: '', name: '', active: true });
+    setEditForm({ registration_code: '', name: '', active: true, shift: '1' });
   };
 
   const handleSaveEdit = async (id) => {
@@ -80,7 +88,8 @@ export default function Operators() {
         .update({
           registration_code: editForm.registration_code,
           name: editForm.name,
-          active: editForm.active
+          active: editForm.active,
+          shift: editForm.shift
         })
         .eq('id', id);
 
@@ -135,12 +144,17 @@ export default function Operators() {
       {isAdding && (
         <form onSubmit={handleAddOperator} className="glass-panel animate-slide-up" style={{ padding: '1.5rem', marginBottom: '0.5rem' }}>
           <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)', fontSize: '1.1rem' }}>Cadastrar Novo Operador</h3>
-          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 2fr minmax(150px, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className="form-group custom-input" style={{ marginBottom: 0 }}>
               <input type="text" className="input-field" placeholder="Matrícula" required value={newOperator.registration_code} onChange={e => setNewOperator({ ...newOperator, registration_code: e.target.value })} style={{ paddingLeft: '1rem' }} />
             </div>
             <div className="form-group custom-input" style={{ marginBottom: 0 }}>
               <input type="text" className="input-field" placeholder="Nome Completo" required value={newOperator.name} onChange={e => setNewOperator({ ...newOperator, name: e.target.value })} style={{ paddingLeft: '1rem' }} />
+            </div>
+            <div className="form-group custom-input" style={{ marginBottom: 0 }}>
+              <select className="input-field" value={newOperator.shift} onChange={e => setNewOperator({ ...newOperator, shift: e.target.value })} style={{ paddingLeft: '1rem' }}>
+                {SHIFT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
@@ -164,8 +178,8 @@ export default function Operators() {
               <tr>
                 <th>Matrícula</th>
                 <th>Nome Completo</th>
-                <th>Cargo</th>
                 <th>Turno Padrão</th>
+                <th>Status</th>
                 <th className="text-right">Ações</th>
               </tr>
             </thead>
@@ -179,7 +193,11 @@ export default function Operators() {
                     <td>
                       <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))} style={{ padding: '0.4rem', minWidth: '150px' }} />
                     </td>
-                    <td><span className="text-secondary">Operador de Máquina</span></td>
+                    <td>
+                      <select className="input-field" value={editForm.shift} onChange={e => setEditForm(prev => ({ ...prev, shift: e.target.value }))} style={{ padding: '0.4rem', width: '130px' }}>
+                        {SHIFT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      </select>
+                    </td>
                     <td>
                       <select className="input-field" value={editForm.active ? 'Ativo' : 'Inativo'} onChange={e => setEditForm(prev => ({ ...prev, active: e.target.value === 'Ativo' }))} style={{ padding: '0.4rem', width: '100px' }}>
                         <option value="Ativo">Ativo</option>
@@ -202,7 +220,7 @@ export default function Operators() {
                         {op.name}
                       </div>
                     </td>
-                    <td><span className="text-secondary">Operador de Máquina</span></td>
+                    <td><span className="text-secondary">{SHIFT_OPTIONS.find(so => so.value === (op.shift || '1'))?.label || 'Turno 1'}</span></td>
                     <td><span className={"badge " + (op.active ? 'badge-primary' : 'badge-danger')}>{op.active ? 'Ativo' : 'Inativo'}</span></td>
                     <td className="text-right actions-cell">
                       <button className="btn-icon" onClick={() => handleEdit(op)} title="Editar"><Edit2 size={16} /></button>
