@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 export default function Pricing() {
     const { user } = useAuth();
@@ -16,16 +15,20 @@ export default function Pricing() {
             alert("Erro crítico: Empresa não vinculada ao usuário.");
             return;
         }
-        setLoading(true);
 
+        // Em modo de testes, podemos apenas avisar que está em homologação
+        alert("O sistema de pagamentos está atualmente em Modo de Testes (Homologação). A cobrança real não será processada no momento.");
+
+        /*
+        // Código real para produção comentado:
+        setLoading(true);
         // Pass the company_id as client_reference_id so the webhook knows who paid
         const checkoutUrl = `${STRIPE_PAYMENT_LINK}?client_reference_id=${user.company_id}&prefilled_email=${encodeURIComponent(user.email)}`;
-
         window.location.href = checkoutUrl;
+        */
     };
 
     const isTrialing = user?.subscription_status === 'trialing';
-    const isCanceled = user?.subscription_status === 'canceled';
 
     // Format end date if exists
     const endDate = user?.subscription_end_date
@@ -44,9 +47,9 @@ export default function Pricing() {
                             <span>Você está no Período de Teste. Ele encerra em <strong>{endDate}</strong>.</span>
                         </div>
                     ) : (
-                        <div className="status-badge pulse-danger">
-                            <AlertTriangle size={20} className="text-danger" />
-                            <span>Sua assinatura está inativa ou expirada.</span>
+                        <div className="status-badge pulse-danger" style={{ borderColor: 'var(--primary-color)', boxShadow: '0 0 15px rgba(0, 102, 255, 0.2)' }}>
+                            <ShieldCheck size={20} style={{ color: 'var(--primary-color)' }} />
+                            <span>Ambiente de Homologação e Testes</span>
                         </div>
                     )}
 
@@ -54,12 +57,12 @@ export default function Pricing() {
                         {isTrialing ? 'Aproveite o PRODIXON SaaS' : 'Ative sua Assinatura'}
                     </h1>
                     <p className="text-secondary" style={{ maxWidth: '600px', margin: '0 auto', fontSize: '1.1rem' }}>
-                        Para continuar utilizando o sistema de gestão de produção em sua plenitude, assine o nosso plano corporativo.
+                        O sistema está operando em ambiente de testes. Planos reais estarão disponíveis no lançamento oficial.
                     </p>
                 </div>
 
                 {/* Pricing Card */}
-                <div className="pricing-card glass-panel animate-slide-up delay-200">
+                <div className="pricing-card glass-panel animate-slide-up delay-200" style={{ opacity: 0.9 }}>
                     <div className="pricing-header">
                         <h3>Plano Corporativo</h3>
                         <div className="price">
@@ -68,6 +71,9 @@ export default function Pricing() {
                             <span className="period">/mês</span>
                         </div>
                         <p className="text-secondary text-sm">Cobrado mensalmente. Cancele quando quiser.</p>
+                        <div style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.5rem', background: 'var(--warning-color)', color: '#000', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px' }}>
+                            EM TESTES
+                        </div>
                     </div>
 
                     <div className="pricing-features">
@@ -94,20 +100,20 @@ export default function Pricing() {
                     </div>
 
                     <button
-                        className="btn btn-primary btn-block btn-large mt-4"
+                        className="btn btn-outline btn-block btn-large mt-4"
                         onClick={handleSubscribe}
                         disabled={loading}
                     >
                         {loading ? 'Redirecionando de forma segura...' : (
                             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <CreditCard size={20} /> Assinar Agora <ArrowRight size={18} />
+                                Assinar (Modo Teste) <ArrowRight size={18} />
                             </span>
                         )}
                     </button>
 
                     <div className="secure-checkout">
-                        <ShieldCheck size={16} className="text-success" />
-                        <span>Pagamento 100% seguro pelo Stripe. Aceitamos PIX e Cartão de Crédito.</span>
+                        <ShieldCheck size={16} className="text-secondary" />
+                        <span>Pagamentos reais desativados durante fase de testes.</span>
                     </div>
                 </div>
 
@@ -152,7 +158,7 @@ export default function Pricing() {
         .pulse-danger { box-shadow: 0 0 15px rgba(248, 81, 73, 0.2); border-color: rgba(248, 81, 73, 0.4); }
 
         .pricing-card {
-          width: 100%;
+           width: 100%;
           max-width: 450px;
           padding: 2.5rem;
           background: linear-gradient(180deg, rgba(30, 35, 45, 0.9) 0%, rgba(13, 17, 23, 0.95) 100%);
