@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Settings, AlertCircle, CheckCircle2, Calendar, Factory, BarChart2, LayoutDashboard } from 'lucide-react';
+import { TrendingUp, Settings, AlertCircle, CheckCircle2, Calendar, Factory, BarChart2, LayoutDashboard, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -18,6 +19,13 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
 
+  // Shift Filter State
+  const [selectedShiftFilter, setSelectedShiftFilter] = useState('ALL');
+
+  // Chart Data States
+  const [downtimeData, setDowntimeData] = useState([]);
+  const [scrapData, setScrapData] = useState([]);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisPeriod, setAnalysisPeriod] = useState('daily');
   const [analysisDate, setAnalysisDate] = useState(new Date().toLocaleDateString('en-CA'));
@@ -28,6 +36,13 @@ export default function Dashboard() {
     totalRefuse: 0,
     shiftBreakdown: []
   });
+
+  const SHIFT_MAP = {
+    '1': '06:00 às 14:00',
+    '2': '14:00 às 22:00',
+    '3': '22:00 às 06:00',
+    'comercial': '08:00 às 18:00'
+  };
 
   useEffect(() => {
     if (user?.company_id && activeTab === 'oee_analysis') {
@@ -111,14 +126,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user?.company_id) {
-      fetchDashboardData(selectedDate);
+      fetchDashboardData(selectedDate, selectedShiftFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id, selectedDate]);
+  }, [user?.company_id, selectedDate, selectedShiftFilter]);
 
-  const fetchDashboardData = async (dateStr) => {
+  const fetchDashboardData = async (dateStr, shiftFilter) => {
     try {
-
       const { data: machinesData, error: mErr } = await supabase
         .from('machines')
         .select('*')
@@ -132,6 +146,11 @@ export default function Dashboard() {
 
       if (mErr || sErr) throw (mErr || sErr);
 
+      // Filter shifts based on user selection
+      const filteredShifts = shiftFilter === 'ALL'
+        ? shiftsData
+        : shiftsData?.filter(s => s.shift_number === SHIFT_MAP[shiftFilter]);
+
       const activeMachines = machinesData?.filter(m => m.status === 'Ativa').length || 0;
       const totalMachines = machinesData?.length || 0;
 
@@ -139,8 +158,10 @@ export default function Dashboard() {
       let totalRefuse = 0;
       let totalTargetProcessed = 0;
       const machinePerformances = {};
+      const downtimeAggregator = {};
+      const scrapAggregator = {};
 
-      shiftsData?.forEach(shift => {
+      filteredShifts?.forEach(shift => {
         const prod = shift.net_production !== undefined ? shift.net_production : Math.max(0, (shift.produced_gross || 0) - (shift.refuse || 0));
         totalProduced += prod;
         totalRefuse += shift.refuse || 0;
@@ -159,6 +180,24 @@ export default function Dashboard() {
         machinePerformances[mId].produced += prod;
         machinePerformances[mId].target += shiftTarget;
         totalTargetProcessed += shiftTarget;
+
+        // Aggregate Downtimes
+        if (shift.downtimes && Array.isArray(shift.downtimes)) {
+          shift.downtimes.forEach(dw => {
+            if (dw.reason) {
+              downtimeAggregator[dw.reason] = (downtimeAggregator[dw.reason] || 0) + Number(dw.minutes || 0);
+            }
+          });
+        }
+
+        // Aggregate Scraps
+        if (shift.scraps && Array.isArray(shift.scraps)) {
+          shift.scraps.forEach(sc => {
+            if (sc.reason) {
+              scrapAggregator[sc.reason] = (scrapAggregator[sc.reason] || 0) + Number(sc.quantity || 0);
+            }
+          });
+        }
       });
 
       const oeeGeneral = totalTargetProcessed > 0 ? Math.round((totalProduced / totalTargetProcessed) * 100) : 0;
@@ -177,7 +216,18 @@ export default function Dashboard() {
 
       const top5 = [...ranking].sort((a, b) => b.eff - a.eff).slice(0, 5);
 
+      // Prepare Chart Data mapping
+      const chartDowntime = Object.entries(downtimeAggregator)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      const chartScrap = Object.entries(scrapAggregator)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
       setChartData(ranking);
+      setDowntimeData(chartDowntime);
+      setScrapData(chartScrap);
 
       setStats({
         totalProduced,
@@ -194,8 +244,10 @@ export default function Dashboard() {
     }
   };
 
+  const PIE_COLORS = ['#ff4d4f', '#ff7a45', '#ffa940', '#fadb14', '#bae637', '#73d13d', '#36cfc9', '#40a9ff', '#597ef7', '#9254de', '#f759ab'];
+
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container animate-fade-in">
       <div className="page-header">
         <div>
           <h1 className="text-gradient">Dashboard de Produção</h1>
@@ -209,7 +261,7 @@ export default function Dashboard() {
             style={{ border: 'none' }}
             onClick={() => setActiveTab('overview')}
           >
-            <LayoutDashboard size={18} /> Turno Atual
+            <LayoutDashboard size={18} /> Resumo Diário
           </button>
           <button
             className={`btn ${activeTab === 'oee_analysis' ? 'btn-primary' : 'btn-outline'}`}
@@ -223,7 +275,41 @@ export default function Dashboard() {
 
       {activeTab === 'overview' ? (
         <>
-          <div className="header-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <div className="header-actions filter-container glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0.75rem 1.5rem', borderRadius: '12px' }}>
+            <div className="shift-filters" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Filter size={18} className="text-muted mr-2" />
+              <button
+                className={`shift-pill ${selectedShiftFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setSelectedShiftFilter('ALL')}
+              >
+                Geral (Todos)
+              </button>
+              <button
+                className={`shift-pill ${selectedShiftFilter === '1' ? 'active' : ''}`}
+                onClick={() => setSelectedShiftFilter('1')}
+              >
+                Turno 1
+              </button>
+              <button
+                className={`shift-pill ${selectedShiftFilter === '2' ? 'active' : ''}`}
+                onClick={() => setSelectedShiftFilter('2')}
+              >
+                Turno 2
+              </button>
+              <button
+                className={`shift-pill ${selectedShiftFilter === '3' ? 'active' : ''}`}
+                onClick={() => setSelectedShiftFilter('3')}
+              >
+                Turno 3
+              </button>
+              <button
+                className={`shift-pill ${selectedShiftFilter === 'comercial' ? 'active' : ''}`}
+                onClick={() => setSelectedShiftFilter('comercial')}
+              >
+                Comercial
+              </button>
+            </div>
+
             <div className="search-box date-filter" style={{ width: 'auto', padding: '0.25rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <Calendar size={18} className="text-muted" style={{ marginRight: '8px' }} />
               <input
@@ -243,7 +329,7 @@ export default function Dashboard() {
                 <TrendingUp size={24} />
               </div>
               <div className="kpi-content">
-                <p className="kpi-label">Produção Líquida</p>
+                <p className="kpi-label">Produção Líquida {selectedShiftFilter !== 'ALL' && '(Turno)'}</p>
                 <h3 className="kpi-value">{stats.totalProduced.toLocaleString()} <span className="text-sm">un</span></h3>
                 <p className="kpi-meta text-success">
                   {((stats.totalProduced / stats.totalTarget) * 100).toFixed(1)}% da Meta
@@ -269,7 +355,7 @@ export default function Dashboard() {
                 <CheckCircle2 size={24} />
               </div>
               <div className="kpi-content">
-                <p className="kpi-label">OEE Geral</p>
+                <p className="kpi-label">OEE do Recorte</p>
                 <h3 className="kpi-value">{stats.oeeGeneral}%</h3>
                 <div className="progress-bar-container mt-2">
                   <div
@@ -294,11 +380,75 @@ export default function Dashboard() {
 
           {/* Main Charts & Rankings Area */}
           <div className="dashboard-content">
-            <div className="chart-section glass-panel animate-fade-in delay-200">
-              <h3 className="section-title">Produção x Meta (Turno Atual)</h3>
-              <div className="chart-placeholder">
+            <div className="chart-section glass-panel animate-fade-in delay-200" style={{ display: 'flex', flexDirection: 'column' }}>
+              <h3 className="section-title">Análise de Paradas de Máquina (Minutos)</h3>
+              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+                {downtimeData.length === 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Nenhuma parada registrada.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={downtimeData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                      <XAxis dataKey="name" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
+                      <YAxis stroke="#888" tick={{ fill: '#888' }} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                      />
+                      <Bar dataKey="value" name="Minutos Parados" radius={[4, 4, 0, 0]}>
+                        {downtimeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="ranking-section glass-panel animate-fade-in delay-300">
+              <h3 className="section-title">Análise de Refugos e Perdas (Qtd)</h3>
+              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+                {scrapData.length === 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Nenhum refugo registrado.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={scrapData}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {scrapData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1' }}>
+              <h3 className="section-title">Ranking de Máquinas (Eficiência do Recorte)</h3>
+              <div className="chart-placeholder" style={{ height: '200px', padding: 0 }}>
                 {chartData.length === 0 ? (
-                  <p className="text-muted text-center" style={{ width: '100%' }}>Sem dados para exibir.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Sem dados para exibir.</p>
+                  </div>
                 ) : (
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div className="bar-chart-mock">
@@ -314,15 +464,14 @@ export default function Dashboard() {
                       })}
                     </div>
 
-                    {/* Legend */}
                     <div className="chart-legend" style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: 'auto', paddingTop: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(46, 160, 67, 0.8)' }}></div>
-                        <span className="text-sm font-medium">Meta (Verde)</span>
+                        <span className="text-sm font-medium">Meta do Turno</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'linear-gradient(180deg, #0066ff 0%, #0052cc 100%)' }}></div>
-                        <span className="text-sm font-medium">Produzido (Azul)</span>
+                        <span className="text-sm font-medium">Produzido Líquido</span>
                       </div>
                     </div>
                   </div>
@@ -330,24 +479,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="ranking-section glass-panel animate-fade-in delay-300">
-              <h3 className="section-title">Ranking de Máquinas (Eficiência)</h3>
-              <div className="ranking-list">
-                {machineRanking.length === 0 && <p className="text-muted text-center py-4">Nenhuma produção registrada hoje.</p>}
-                {machineRanking.map((mq, i) => (
-                  <div key={i} className="ranking-item">
-                    <div className="ranking-pos">#{i + 1}</div>
-                    <div className="ranking-info">
-                      <h4>{mq.name}</h4>
-                      <span className="text-secondary">{mq.id}</span>
-                    </div>
-                    <div className="ranking-score">
-                      <span className={"score-badge " + mq.status}>{mq.eff}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </>
       ) : (
@@ -459,6 +590,30 @@ export default function Dashboard() {
           gap: 1rem;
           flex-wrap: wrap;
         }
+        
+        .shift-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-secondary);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .shift-pill:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+        
+        .shift-pill.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(0, 102, 255, 0.3);
+        }
 
         .header-actions {
           display: flex;
@@ -537,7 +692,7 @@ export default function Dashboard() {
 
         .dashboard-content {
           display: grid;
-          grid-template-columns: 2fr 1fr;
+          grid-template-columns: 3fr 2fr;
           gap: 1.5rem;
         }
 
@@ -669,6 +824,8 @@ export default function Dashboard() {
           .page-header { flex-direction: column; align-items: stretch; }
           .tab-switcher { width: 100%; justify-content: space-between; }
           .tab-switcher .btn { flex: 1; justify-content: center; }
+          .filter-container { flex-direction: column; align-items: flex-start !important; gap: 1rem; }
+          .shift-filters { flex-wrap: wrap; }
         }
       `}</style>
     </div>
