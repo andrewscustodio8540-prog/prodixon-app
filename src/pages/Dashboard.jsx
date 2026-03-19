@@ -556,18 +556,18 @@ export default function Dashboard() {
             {/* Nova Seção: Tabela Detalhada por Peça */}
             <div className="detailed-table-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', padding: '1.5rem', marginTop: '0.5rem' }}>
               <h3 className="section-title">Detalhamento por Máquina e Peça</h3>
-              <div className="table-responsive">
+              <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                 <table className="custom-table" style={{ minWidth: '900px' }}>
                   <thead>
                     <tr>
                       <th>Máquina</th>
                       <th>Peça Produzida</th>
                       <th>Operador</th>
-                      <th>Meta</th>
-                      <th>Gross (Bruto)</th>
-                      <th>Refugo</th>
-                      <th>Líquido</th>
-                      <th>OEE (Eficiência)</th>
+                      <th className="text-center">Meta</th>
+                      <th className="text-center">Gross (Bruto)</th>
+                      <th className="text-center">Refugo</th>
+                      <th className="text-center">Líquido</th>
+                      <th className="text-center">OEE</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -578,15 +578,15 @@ export default function Dashboard() {
                     ) : (
                       detailedShifts.map((row) => (
                         <tr key={row.id}>
-                          <td><strong>{row.machineName}</strong></td>
+                          <td style={{ whiteSpace: 'nowrap' }}><strong>{row.machineName}</strong></td>
                           <td><span className="text-secondary">{row.partName}</span></td>
-                          <td>{row.operatorName}</td>
-                          <td>{row.target}</td>
-                          <td>{row.producedGross}</td>
-                          <td className="text-danger">{row.refuse}</td>
-                          <td className="text-success fw-600">{row.producedNet}</td>
-                          <td>
-                            <span className={`badge badge-${row.status}`}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{row.operatorName}</td>
+                          <td className="text-center" style={{ fontWeight: '500' }}>{row.target}</td>
+                          <td className="text-center" style={{ fontWeight: '500' }}>{row.producedGross}</td>
+                          <td className="text-center text-danger" style={{ fontWeight: 'bold' }}>{row.refuse}</td>
+                          <td className="text-center text-success" style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{row.producedNet}</td>
+                          <td className="text-center">
+                            <span className={`badge badge-${row.status}`} style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
                               {row.oee}%
                             </span>
                           </td>
@@ -1049,6 +1049,36 @@ export default function Dashboard() {
           border-radius: 20px;
           font-weight: 600;
           font-size: 0.85rem;
+        }
+
+        .custom-table th {
+          text-align: left;
+          padding: 1.25rem 1rem;
+          color: var(--text-secondary);
+          font-weight: 600;
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          white-space: nowrap;
+          position: sticky;
+          top: 0;
+          background-color: #0f172a; /* Cor sólida para tapar o scroll atrás */
+          z-index: 10;
+          box-shadow: inset 0 -2px 0 var(--border-color); /* Usando shadow como borda que acompanha no scroll */
+        }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center !important; }
+        .py-4 { padding-top: 2rem; padding-bottom: 2rem; }
+
+        .custom-table td {
+          padding: 1.25rem 1rem;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          font-size: 1rem;
+          vertical-align: middle;
+        }
+
+        .custom-table tbody tr:hover {
+          background: rgba(255,255,255,0.05);
         }
 
         .score-badge.excellent { background: rgba(46, 160, 67, 0.15); color: #3fb950; }
