@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [downtimeData, setDowntimeData] = useState([]);
   const [scrapData, setScrapData] = useState([]);
 
+  // Detailed Table Data State
+  const [detailedShifts, setDetailedShifts] = useState([]);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisPeriod, setAnalysisPeriod] = useState('daily');
   const [analysisDate, setAnalysisDate] = useState(new Date().toLocaleDateString('en-CA'));
@@ -140,7 +143,12 @@ export default function Dashboard() {
 
       const { data: shiftsData, error: sErr } = await supabase
         .from('shifts')
-        .select('*, machines(code, name, target_per_shift)')
+        .select(`
+          *, 
+          machines(code, name, target_per_shift),
+          operators(name, registration_code),
+          parts(name, part_number)
+        `)
         .eq('company_id', user.company_id)
         .eq('date', dateStr);
 
@@ -225,9 +233,32 @@ export default function Dashboard() {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+      // Prepare Detailed Shifts Data mapping
+      const detailedTableData = filteredShifts?.map(shift => {
+        const targ = shift.target || shift.machines?.target_per_shift || 1;
+        const prodGross = shift.produced_gross || 0;
+        const ref = shift.refuse || 0;
+        const prodNet = shift.net_production !== undefined ? shift.net_production : Math.max(0, prodGross - ref);
+        const eff = Math.round((prodNet / targ) * 100);
+
+        return {
+          id: shift.id,
+          machineName: `${shift.machines?.code || '--'} - ${shift.machines?.name || 'Desconhecida'}`,
+          operatorName: shift.operators?.name || 'Desconhecido',
+          partName: `${shift.parts?.part_number || '--'} - ${shift.parts?.name || 'Sem Peça'}`,
+          target: targ,
+          producedGross: prodGross,
+          refuse: ref,
+          producedNet: prodNet,
+          oee: eff,
+          status: eff >= 90 ? 'success' : eff >= 75 ? 'primary' : eff >= 50 ? 'warning' : 'danger'
+        };
+      }).sort((a, b) => a.machineName.localeCompare(b.machineName) || b.oee - a.oee) || [];
+
       setChartData(ranking);
       setDowntimeData(chartDowntime);
       setScrapData(chartScrap);
+      setDetailedShifts(detailedTableData);
 
       setStats({
         totalProduced,
@@ -476,6 +507,51 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Nova Seção: Tabela Detalhada por Peça */}
+            <div className="detailed-table-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', padding: '1.5rem', marginTop: '0.5rem' }}>
+              <h3 className="section-title">Detalhamento por Máquina e Peça</h3>
+              <div className="table-responsive">
+                <table className="custom-table" style={{ minWidth: '900px' }}>
+                  <thead>
+                    <tr>
+                      <th>Máquina</th>
+                      <th>Peça Produzida</th>
+                      <th>Operador</th>
+                      <th>Meta</th>
+                      <th>Gross (Bruto)</th>
+                      <th>Refugo</th>
+                      <th>Líquido</th>
+                      <th>OEE (Eficiência)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailedShifts.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }} className="text-muted">Nenhum lançamento no período filtrado.</td>
+                      </tr>
+                    ) : (
+                      detailedShifts.map((row) => (
+                        <tr key={row.id}>
+                          <td><strong>{row.machineName}</strong></td>
+                          <td><span className="text-secondary">{row.partName}</span></td>
+                          <td>{row.operatorName}</td>
+                          <td>{row.target}</td>
+                          <td>{row.producedGross}</td>
+                          <td className="text-danger">{row.refuse}</td>
+                          <td className="text-success fw-600">{row.producedNet}</td>
+                          <td>
+                            <span className={`badge badge-${row.status}`}>
+                              {row.oee}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
