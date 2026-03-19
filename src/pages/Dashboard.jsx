@@ -30,6 +30,36 @@ export default function Dashboard() {
   const [detailedShifts, setDetailedShifts] = useState([]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [availableMachines, setAvailableMachines] = useState([]);
+  const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [machineData, setMachineData] = useState({ loading: false, shifts: [] });
+  
+  const fetchMachineDetails = async () => {
+    if (!selectedMachineId) return;
+    setMachineData({ loading: true, shifts: [] });
+    try {
+      const { data: shiftsData, error: sErr } = await supabase
+        .from('shifts')
+        .select(`*, machines(code, name, target_per_shift), operators(name, registration_code), parts(name, part_number)`)
+        .eq('company_id', user.company_id)
+        .eq('machine_id', selectedMachineId)
+        .eq('date', selectedDate)
+        .order('created_at', { ascending: false });
+
+      if (sErr) throw sErr;
+      setMachineData({ loading: false, shifts: shiftsData || [] });
+    } catch (err) {
+      console.error(err);
+      setMachineData({ loading: false, shifts: [] });
+    }
+  };
+
+  useEffect(() => {
+    if (user?.company_id && activeTab === 'machine_details') {
+      fetchMachineDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, activeTab, selectedMachineId, selectedDate]);
   const [analysisPeriod, setAnalysisPeriod] = useState('daily');
   const [analysisDate, setAnalysisDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [analysisData, setAnalysisData] = useState({
@@ -260,6 +290,12 @@ export default function Dashboard() {
       setScrapData(chartScrap);
       setDetailedShifts(detailedTableData);
 
+      const activeMacs = machinesData?.filter(m => m.status === 'Ativa') || [];
+      setAvailableMachines(activeMacs);
+      if (!selectedMachineId && activeMacs.length > 0) {
+        setSelectedMachineId(activeMacs[0].id);
+      }
+
       setStats({
         totalProduced,
         totalTarget: totalTargetProcessed > 0 ? totalTargetProcessed : 1,
@@ -293,6 +329,13 @@ export default function Dashboard() {
             onClick={() => setActiveTab('overview')}
           >
             <LayoutDashboard size={18} /> Resumo Diário
+          </button>
+          <button
+            className={`btn ${activeTab === 'machine_details' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ border: 'none' }}
+            onClick={() => setActiveTab('machine_details')}
+          >
+            <Factory size={18} /> Análise por Máquina
           </button>
           <button
             className={`btn ${activeTab === 'oee_analysis' ? 'btn-primary' : 'btn-outline'}`}
@@ -557,6 +600,124 @@ export default function Dashboard() {
 
           </div>
         </>
+      ) : activeTab === 'machine_details' ? (
+        <div className="machine-details-tab animate-fade-in">
+          <div className="filter-bar glass-panel" style={{ display: 'flex', gap: '1rem', padding: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: '250px' }}>
+              <label className="form-label text-sm">Selecione a Máquina</label>
+              <select
+                className="input-field"
+                style={{ padding: '0.5rem 1rem' }}
+                value={selectedMachineId}
+                onChange={(e) => setSelectedMachineId(e.target.value)}
+              >
+                <option value="">-- Selecione uma Máquina --</option>
+                {availableMachines.map(m => (
+                  <option key={m.id} value={m.id}>{m.code} - {m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: '200px' }}>
+              <label className="form-label text-sm">Data de Referência</label>
+              <div className="input-with-icon">
+                <Calendar className="input-icon" size={16} style={{ left: '10px' }} />
+                <input
+                  type="date"
+                  className="input-field"
+                  style={{ paddingLeft: '2.2rem', padding: '0.5rem 1rem 0.5rem 2.2rem', colorScheme: 'dark' }}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          {machineData.loading ? (
+             <div className="text-center py-4"><div className="text-secondary">Carregando dados da máquina...</div></div>
+          ) : machineData.shifts.length === 0 ? (
+             <div className="glass-panel text-center py-4"><p className="text-muted">Nenhum apontamento encontrado para esta máquina nesta data.</p></div>
+          ) : (
+             <div className="grid-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {machineData.shifts.map(shift => {
+                   const targ = shift.target || shift.machines?.target_per_shift || 1;
+                   const prodGross = shift.produced_gross || 0;
+                   const ref = shift.refuse || 0;
+                   const prodNet = shift.net_production !== undefined ? shift.net_production : Math.max(0, prodGross - ref);
+                   const eff = Math.round((prodNet / targ) * 100);
+                   const badgeClass = eff >= 90 ? 'success' : eff >= 75 ? 'primary' : eff >= 50 ? 'warning' : 'danger';
+                   
+                   return (
+                     <div key={shift.id} className="shift-card glass-panel" style={{ padding: '1.5rem', borderLeft: `4px solid var(--${badgeClass === 'primary' ? 'primary-color' : badgeClass + '-color'})` }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                         <div>
+                           <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{SHIFT_MAP[shift.shift_number] || `Turno ${shift.shift_number}`}</h3>
+                           <p className="text-secondary" style={{ marginTop: '0.25rem' }}>{shift.parts?.name || 'Sem Peça Selecionada'} (Cód: {shift.parts?.part_number}) — Operador: {shift.operators?.name}</p>
+                         </div>
+                         <div style={{ textAlign: 'right' }}>
+                           <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-family-display)' }} className={`text-${badgeClass}`}>
+                             {eff}%
+                           </div>
+                           <div className="text-secondary text-sm">OEE do Lote</div>
+                         </div>
+                       </div>
+                       
+                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px' }}>
+                             <div className="text-sm text-secondary">Meta</div>
+                             <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{targ} un</div>
+                          </div>
+                          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px' }}>
+                             <div className="text-sm text-secondary">Produção Bruta</div>
+                             <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{prodGross} un</div>
+                          </div>
+                          <div style={{ background: 'rgba(248, 81, 73, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+                             <div className="text-sm text-danger">Refugo Total</div>
+                             <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }} className="text-danger">{ref} un</div>
+                          </div>
+                          <div style={{ background: 'rgba(46, 160, 67, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+                             <div className="text-sm text-success">Produção Líquida</div>
+                             <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }} className="text-success">{prodNet} un</div>
+                          </div>
+                       </div>
+                       
+                       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '2rem' }}>
+                          <div>
+                             <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={16} className="text-danger" /> Motivos de Parada</h4>
+                             {(!shift.downtimes || shift.downtimes.length === 0) ? (
+                                <p className="text-secondary text-sm">Sem paradas registradas.</p>
+                             ) : (
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                   {shift.downtimes.map((dw, idx) => (
+                                      <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                         <span className="text-sm">{dw.reason}</span>
+                                         <span className="text-sm font-bold text-danger">{dw.minutes} min</span>
+                                      </li>
+                                   ))}
+                                </ul>
+                             )}
+                          </div>
+                          <div>
+                             <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertCircle size={16} className="text-warning" /> Detalhamento de Refugo</h4>
+                             {(!shift.scraps || shift.scraps.length === 0) ? (
+                                <p className="text-secondary text-sm">Sem código de refugo registrado.</p>
+                             ) : (
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                   {shift.scraps.map((sc, idx) => (
+                                      <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                         <span className="text-sm">{sc.reason}</span>
+                                         <span className="text-sm font-bold text-warning">{sc.quantity} un</span>
+                                      </li>
+                                   ))}
+                                </ul>
+                             )}
+                          </div>
+                       </div>
+                     </div>
+                   );
+                })}
+             </div>
+          )}
+        </div>
       ) : (
         /* --- OEE ANALYSIS TAB --- */
         <div className="oee-analysis-tab animate-fade-in">
