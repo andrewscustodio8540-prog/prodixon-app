@@ -130,7 +130,7 @@ export default function Team() {
                 </div>
             </div>
 
-            <div className="dashboard-content" style={{ gridTemplateColumns: 'minmax(300px, 1fr) 2fr' }}>
+            <div className="dashboard-content team-grid">
 
                 {/* Invite Code Panel */}
                 <div className="glass-panel animate-slide-up" style={{ alignSelf: 'start' }}>
@@ -228,6 +228,10 @@ export default function Team() {
           display: grid;
           gap: 1.5rem;
         }
+        
+        .team-grid {
+          grid-template-columns: minmax(300px, 1fr) 2fr;
+        }
 
         .join-code-box {
           background: rgba(46, 160, 67, 0.1);
@@ -294,7 +298,7 @@ export default function Team() {
         .hover-danger:hover { background: rgba(239, 68, 68, 0.1); }
 
         @media (max-width: 900px) {
-          .dashboard-content { grid-template-columns: 1fr; }
+          .team-grid { grid-template-columns: 1fr; }
         }
       `}</style>
         </div>
