@@ -10,6 +10,8 @@ export default function Operators() {
   const [newOperator, setNewOperator] = useState({ registration_code: '', name: '', shift: '1' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ registration_code: '', name: '', active: true, shift: '1' });
+  const [activeShiftTab, setActiveShiftTab] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
   const { user } = useAuth();
 
   const SHIFT_OPTIONS = [
@@ -129,6 +131,13 @@ export default function Operators() {
     }
   };
 
+  const filteredOperators = operators.filter(op => {
+    const matchesSearch = op.name.toLowerCase().includes(searchTerm.toLowerCase()) || op.registration_code.toLowerCase().includes(searchTerm.toLowerCase());
+    const opShift = op.shift || '1';
+    const matchesShift = activeShiftTab === 'ALL' || opShift === activeShiftTab;
+    return matchesSearch && matchesShift;
+  });
+
   return (
     <div className="operators-container animate-fade-in">
       <div className="page-header">
@@ -165,10 +174,37 @@ export default function Operators() {
       )}
 
       <div className="glass-panel table-container">
-        <div className="table-toolbar">
+        <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+          
+          <div className="tab-switcher" style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.25rem', borderRadius: '8px', overflowX: 'auto' }}>
+            <button
+              className={`btn ${activeShiftTab === 'ALL' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ border: 'none', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+              onClick={() => setActiveShiftTab('ALL')}
+            >
+              Todos
+            </button>
+            {SHIFT_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                className={`btn ${activeShiftTab === opt.value ? 'btn-primary' : 'btn-outline'}`}
+                style={{ border: 'none', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+                onClick={() => setActiveShiftTab(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <div className="search-box">
             <Search size={18} className="text-muted" />
-            <input type="text" placeholder="Buscar operador..." className="input-transparent" />
+            <input 
+              type="text" 
+              placeholder="Buscar operador..." 
+              className="input-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
@@ -184,7 +220,7 @@ export default function Operators() {
               </tr>
             </thead>
             <tbody>
-              {operators.map((op, index) => (
+              {filteredOperators.map((op, index) => (
                 op.id === editingId ? (
                   <tr key={`edit-${op.id}`} className="animate-fade-in" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
                     <td>
@@ -229,9 +265,9 @@ export default function Operators() {
                   </tr>
                 )
               ))}
-              {operators.length === 0 && !loading && (
+              {filteredOperators.length === 0 && !loading && (
                 <tr>
-                  <td colSpan="5" className="text-center py-4 text-muted" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum operador cadastrado.</td>
+                  <td colSpan="5" className="text-center py-4 text-muted" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum operador encontrado para este filtro.</td>
                 </tr>
               )}
               {loading && (
