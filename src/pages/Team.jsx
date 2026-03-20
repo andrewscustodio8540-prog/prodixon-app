@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Shield, ShieldAlert, KeyRound, Copy, CheckCircle2, User, UserCog } from 'lucide-react';
+import { Shield, ShieldAlert, KeyRound, Copy, CheckCircle2, User, UserCog, Trash2 } from 'lucide-react';
 
 export default function Team() {
     const { user } = useAuth();
@@ -53,6 +53,29 @@ export default function Team() {
             navigator.clipboard.writeText(companyDetails.join_code);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const handleRemoveMember = async (memberId, memberName) => {
+        if (memberId === user.id) {
+            alert("Você não pode remover a si mesmo da empresa.");
+            return;
+        }
+        if (!window.confirm(`Tem certeza que deseja remover "${memberName || 'o membro'}" do sistema da empresa? Ele perderá totalmente o acesso de leitura/edição.`)) {
+            return;
+        }
+        try {
+            // "Kick" user from company by setting company_id to null
+            const { error } = await supabase
+                .from('profiles')
+                .update({ company_id: null, role: 'operator' })
+                .eq('id', memberId);
+
+            if (error) throw error;
+            setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+            alert("Membro removido com sucesso!");
+        } catch (err) {
+            alert(`Erro ao remover: ${err.message}`);
         }
     };
 
@@ -176,8 +199,16 @@ export default function Team() {
                                                     <option value="operator">Operador</option>
                                                 </select>
                                             </td>
-                                            <td className="text-right actions-cell">
-                                                {/* More actions like "Remove from company" could go here later */}
+                                            <td className="text-right actions-cell" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                <button
+                                                    className="btn-icon hover-danger"
+                                                    title="Remover Acesso"
+                                                    onClick={() => handleRemoveMember(member.id, member.full_name)}
+                                                    disabled={member.id === user.id}
+                                                    style={{ opacity: member.id === user.id ? 0.3 : 1 }}
+                                                >
+                                                    <Trash2 size={18} className={member.id === user.id ? 'text-muted' : 'text-danger'} />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -258,6 +289,9 @@ export default function Team() {
         
         .role-select.admin { color: #58a6ff; border-color: rgba(0, 102, 255, 0.3); }
         .role-select.operator { color: #3fb950; border-color: rgba(46, 160, 67, 0.3); }
+
+        .btn-icon { background: transparent; border: none; cursor: pointer; padding: 0.5rem; border-radius: var(--border-radius-sm); transition: var(--transition-fast); }
+        .hover-danger:hover { background: rgba(239, 68, 68, 0.1); }
 
         @media (max-width: 900px) {
           .dashboard-content { grid-template-columns: 1fr; }

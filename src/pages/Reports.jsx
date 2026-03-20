@@ -167,7 +167,7 @@ export default function Reports() {
                             />
                         </div>
 
-                        <div className="search-box date-filter" style={{ width: 'auto', padding: '0.25rem 1rem' }}>
+                        <div className="search-box date-filter" style={{ width: 'auto', padding: '0.25rem 1rem', minWidth: '150px', flex: '1 1 auto' }}>
                             <Filter size={16} className="text-muted" />
                             <input
                                 type="date"
@@ -251,8 +251,8 @@ export default function Reports() {
         .header-actions { display: flex; gap: 1rem; }
         
         .table-container { padding: 1.5rem; overflow: hidden; }
-        .table-toolbar { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-        .filters-group { display: flex; gap: 1rem; }
+        .table-toolbar { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .filters-group { display: flex; gap: 1rem; flex-wrap: wrap; width: 100%; }
         
         .search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); width: 300px; max-width: 100%; }
         .input-transparent { background: transparent; border: none; color: white; outline: none; width: 100%; }
