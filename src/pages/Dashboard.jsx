@@ -367,31 +367,31 @@ export default function Dashboard() {
         </div>
 
         {/* Custom Tab Switcher */}
-        <div className="tab-switcher glass-panel" style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+        <div className="tab-switcher glass-panel" style={{ display: 'flex', padding: '4px', borderRadius: '12px', gap: '4px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <button
             className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ border: 'none' }}
+            style={{ border: 'none', whiteSpace: 'nowrap' }}
             onClick={() => setActiveTab('overview')}
           >
             <LayoutDashboard size={18} /> Resumo Diário
           </button>
           <button
             className={`btn ${activeTab === 'machine_details' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ border: 'none' }}
+            style={{ border: 'none', whiteSpace: 'nowrap' }}
             onClick={() => setActiveTab('machine_details')}
           >
             <Factory size={18} /> Análise por Máquina
           </button>
           <button
             className={`btn ${activeTab === 'shift_summary' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ border: 'none' }}
+            style={{ border: 'none', whiteSpace: 'nowrap' }}
             onClick={() => setActiveTab('shift_summary')}
           >
             <CheckCircle2 size={18} /> Produção por Turno
           </button>
           <button
             className={`btn ${activeTab === 'oee_analysis' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ border: 'none' }}
+            style={{ border: 'none', whiteSpace: 'nowrap' }}
             onClick={() => setActiveTab('oee_analysis')}
           >
             <BarChart2 size={18} /> Análise Histórica (OEE)
