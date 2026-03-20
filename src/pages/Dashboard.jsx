@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [availableMachines, setAvailableMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState('');
   const [machineData, setMachineData] = useState({ loading: false, shifts: [] });
+  const [shiftSummaryData, setShiftSummaryData] = useState(null);
   
   const fetchMachineDetails = async () => {
     if (!selectedMachineId) return;
@@ -290,6 +291,50 @@ export default function Dashboard() {
       setScrapData(chartScrap);
       setDetailedShifts(detailedTableData);
 
+      // --- Shift Summary Calculation ---
+      const shiftAggregation = {};
+      let dailyTarget = 0;
+      let dailyProduced = 0;
+      let dailyRefuse = 0;
+
+      shiftsData?.forEach(shift => {
+        const sName = SHIFT_MAP[shift.shift_number] || `Turno ${shift.shift_number}`;
+        const targ = shift.target || shift.machines?.target_per_shift || 1;
+        const prodGross = shift.produced_gross || 0;
+        const ref = shift.refuse || 0;
+        const prodNet = shift.net_production !== undefined ? shift.net_production : Math.max(0, prodGross - ref);
+
+        if (!shiftAggregation[sName]) {
+          shiftAggregation[sName] = { name: sName, target: 0, produced: 0, refuse: 0, gross: 0 };
+        }
+        shiftAggregation[sName].target += targ;
+        shiftAggregation[sName].produced += prodNet;
+        shiftAggregation[sName].gross += prodGross;
+        shiftAggregation[sName].refuse += ref;
+        
+        dailyTarget += targ;
+        dailyProduced += prodNet;
+        dailyRefuse += ref;
+      });
+
+      const shiftSummaryList = Object.values(shiftAggregation).map(s => {
+        const oee = s.target > 0 ? Math.round((s.produced / s.target) * 100) : 0;
+        return {
+          ...s,
+          oee,
+          status: oee >= 90 ? 'success' : oee >= 75 ? 'primary' : oee >= 50 ? 'warning' : 'danger'
+        };
+      }).sort((a, b) => b.oee - a.oee);
+
+      setShiftSummaryData({
+        dailyTarget,
+        dailyProduced,
+        dailyRefuse,
+        dailyOee: dailyTarget > 0 ? Math.round((dailyProduced / dailyTarget) * 100) : 0,
+        shifts: shiftSummaryList
+      });
+      // --------------------------------
+
       const activeMacs = machinesData?.filter(m => m.status === 'Ativa') || [];
       setAvailableMachines(activeMacs);
       if (!selectedMachineId && activeMacs.length > 0) {
@@ -336,6 +381,13 @@ export default function Dashboard() {
             onClick={() => setActiveTab('machine_details')}
           >
             <Factory size={18} /> Análise por Máquina
+          </button>
+          <button
+            className={`btn ${activeTab === 'shift_summary' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ border: 'none' }}
+            onClick={() => setActiveTab('shift_summary')}
+          >
+            <CheckCircle2 size={18} /> Produção por Turno
           </button>
           <button
             className={`btn ${activeTab === 'oee_analysis' ? 'btn-primary' : 'btn-outline'}`}
@@ -716,6 +768,82 @@ export default function Dashboard() {
                    );
                 })}
              </div>
+          )}
+        </div>
+      ) : activeTab === 'shift_summary' ? (
+        <div className="shift-summary-tab animate-fade-in">
+          <div className="filter-bar glass-panel" style={{ display: 'flex', gap: '1rem', padding: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: '200px' }}>
+              <label className="form-label text-sm">Data de Referência</label>
+              <div className="input-with-icon">
+                <Calendar className="input-icon" size={16} style={{ left: '10px' }} />
+                <input
+                  type="date"
+                  className="input-field"
+                  style={{ paddingLeft: '2.2rem', padding: '0.5rem 1rem 0.5rem 2.2rem', colorScheme: 'dark' }}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {!shiftSummaryData ? (
+             <div className="text-center py-4"><div className="text-secondary">Carregando comparativo dos turnos...</div></div>
+          ) : shiftSummaryData.shifts.length === 0 ? (
+             <div className="glass-panel text-center py-4"><p className="text-muted">Nenhum turno registrado para esta data.</p></div>
+          ) : (
+             <>
+                {/* Consolidado do Dia */}
+                <div className="glass-panel main-consolidated" style={{ padding: '2rem', marginBottom: '2rem', textAlign: 'center', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.2) 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                   <h2 style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Consolidado do Dia</h2>
+                   <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: '2rem' }}>
+                      <div>
+                         <div className="text-sm text-secondary mb-1">OEE Global</div>
+                         <div style={{ fontSize: '3rem', fontWeight: 800, lineHeight: 1, color: `var(--${shiftSummaryData.dailyOee >= 75 ? 'success' : shiftSummaryData.dailyOee >= 50 ? 'warning' : 'danger'}-color)` }}>{shiftSummaryData.dailyOee}%</div>
+                      </div>
+                      <div>
+                         <div className="text-sm text-secondary mb-1">Total Produzido</div>
+                         <div style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.2 }} className="text-primary">{shiftSummaryData.dailyProduced.toLocaleString()} un</div>
+                      </div>
+                      <div>
+                         <div className="text-sm text-secondary mb-1">Total Refugado</div>
+                         <div style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.2 }} className="text-danger">{shiftSummaryData.dailyRefuse.toLocaleString()} un</div>
+                      </div>
+                   </div>
+                </div>
+
+                <h3 className="section-title">Desempenho por Turno (Ranking)</h3>
+                <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                   {shiftSummaryData.shifts.map((shift, index) => (
+                      <div key={index} className="shift-card glass-panel animate-slide-up" style={{ padding: '1.5rem', position: 'relative', overflow: 'hidden', animationDelay: (index * 100) + 'ms' }}>
+                         <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: `var(--${shift.status === 'primary' ? 'primary-color' : shift.status + '-color'})` }}></div>
+                         
+                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.3rem' }}>{shift.name}</h3>
+                            <div style={{ textAlign: 'right' }}>
+                               <div style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-family-display)' }} className={`text-${shift.status}`}>
+                                  {shift.oee}%
+                               </div>
+                               <div className="text-secondary text-sm">OEE</div>
+                            </div>
+                         </div>
+                         
+                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px' }}>
+                               <div className="text-sm text-secondary">Produção Líquida</div>
+                               <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }} className="text-success">{shift.produced.toLocaleString()}</div>
+                               <div className="text-sm text-muted mt-1">Meta: {shift.target.toLocaleString()}</div>
+                            </div>
+                            <div style={{ background: 'rgba(248, 81, 73, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+                               <div className="text-sm text-danger">Refugo</div>
+                               <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }} className="text-danger">{shift.refuse.toLocaleString()}</div>
+                            </div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </>
           )}
         </div>
       ) : (
