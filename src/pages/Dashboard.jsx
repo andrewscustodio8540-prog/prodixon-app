@@ -717,11 +717,11 @@ export default function Dashboard() {
              <div className="glass-panel text-center py-4"><p className="text-muted">Nenhum apontamento encontrado para esta máquina nesta data.</p></div>
           ) : (
              <div className="grid-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {machineData.shifts.filter(s => selectedMachineShift === 'ALL' || s.shift_number === selectedMachineShift).length === 0 ? (
+                {machineData.shifts.filter(s => selectedMachineShift === 'ALL' || s.shift_number === SHIFT_MAP[selectedMachineShift] || String(s.shift_number) === selectedMachineShift).length === 0 ? (
                    <p className="text-muted text-center py-4">Nenhum lançamento ocorreu na máquina/data para o turno selecionado.</p>
                 ) : (
                    machineData.shifts
-                     .filter(s => selectedMachineShift === 'ALL' || s.shift_number === selectedMachineShift)
+                     .filter(s => selectedMachineShift === 'ALL' || s.shift_number === SHIFT_MAP[selectedMachineShift] || String(s.shift_number) === selectedMachineShift)
                      .map(shift => {
                         const targ = shift.target || shift.machines?.target_per_shift || 1;
                    const prodGross = shift.produced_gross || 0;
