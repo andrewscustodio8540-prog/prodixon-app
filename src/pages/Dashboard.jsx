@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [availableMachines, setAvailableMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [selectedMachineShift, setSelectedMachineShift] = useState('ALL');
   const [machineData, setMachineData] = useState({ loading: false, shifts: [] });
   const [shiftSummaryData, setShiftSummaryData] = useState(null);
   
@@ -680,6 +681,21 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: '180px' }}>
+              <label className="form-label text-sm">Turno (Ocultar Restante)</label>
+              <select
+                className="input-field"
+                style={{ padding: '0.5rem 1rem' }}
+                value={selectedMachineShift}
+                onChange={(e) => setSelectedMachineShift(e.target.value)}
+              >
+                <option value="ALL">Todos (Comparativo)</option>
+                <option value="1">Turno 1 (06:00 - 14:00)</option>
+                <option value="2">Turno 2 (14:00 - 22:00)</option>
+                <option value="3">Turno 3 (22:00 - 06:00)</option>
+                <option value="comercial">Comercial</option>
+              </select>
+            </div>
             <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: '200px' }}>
               <label className="form-label text-sm">Data de Referência</label>
               <div className="input-with-icon">
@@ -701,8 +717,13 @@ export default function Dashboard() {
              <div className="glass-panel text-center py-4"><p className="text-muted">Nenhum apontamento encontrado para esta máquina nesta data.</p></div>
           ) : (
              <div className="grid-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {machineData.shifts.map(shift => {
-                   const targ = shift.target || shift.machines?.target_per_shift || 1;
+                {machineData.shifts.filter(s => selectedMachineShift === 'ALL' || s.shift_number === selectedMachineShift).length === 0 ? (
+                   <p className="text-muted text-center py-4">Nenhum lançamento ocorreu na máquina/data para o turno selecionado.</p>
+                ) : (
+                   machineData.shifts
+                     .filter(s => selectedMachineShift === 'ALL' || s.shift_number === selectedMachineShift)
+                     .map(shift => {
+                        const targ = shift.target || shift.machines?.target_per_shift || 1;
                    const prodGross = shift.produced_gross || 0;
                    const ref = shift.refuse || 0;
                    const prodNet = shift.net_production !== undefined ? shift.net_production : Math.max(0, prodGross - ref);
@@ -777,7 +798,8 @@ export default function Dashboard() {
                        </div>
                      </div>
                    );
-                })}
+                })
+             )}
              </div>
           )}
         </div>
