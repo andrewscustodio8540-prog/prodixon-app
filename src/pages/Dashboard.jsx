@@ -617,48 +617,61 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Nova Seção: Tabela Detalhada por Peça */}
-            <div className="detailed-table-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', padding: '1.5rem', marginTop: '0.5rem' }}>
-              <h3 className="section-title">Detalhamento por Máquina e Peça</h3>
-              <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                <table className="custom-table" style={{ minWidth: '900px' }}>
-                  <thead>
-                    <tr>
-                      <th>Máquina</th>
-                      <th>Peça Produzida</th>
-                      <th>Operador</th>
-                      <th className="text-center">Meta</th>
-                      <th className="text-center">Gross (Bruto)</th>
-                      <th className="text-center">Refugo</th>
-                      <th className="text-center">Líquido</th>
-                      <th className="text-center">OEE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailedShifts.length === 0 ? (
-                      <tr>
-                        <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }} className="text-muted">Nenhum lançamento no período filtrado.</td>
-                      </tr>
-                    ) : (
-                      detailedShifts.map((row) => (
-                        <tr key={row.id}>
-                          <td style={{ whiteSpace: 'nowrap' }}><strong>{row.machineName}</strong></td>
-                          <td><span className="text-secondary">{row.partName}</span></td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{row.operatorName}</td>
-                          <td className="text-center" style={{ fontWeight: '500' }}>{row.target}</td>
-                          <td className="text-center" style={{ fontWeight: '500' }}>{row.producedGross}</td>
-                          <td className="text-center text-danger" style={{ fontWeight: 'bold' }}>{row.refuse}</td>
-                          <td className="text-center text-success" style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{row.producedNet}</td>
-                          <td className="text-center">
-                            <span className={`badge badge-${row.status}`} style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
-                              {row.oee}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            {/* Nova Seção: Medidores de OEE por Turno */}
+            <div className="gauges-section animate-fade-in delay-300" style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
+              <h3 className="section-title">OEE por Turno (Tempo Real)</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                {!shiftSummaryData || shiftSummaryData.shifts.length === 0 ? (
+                   <div className="glass-panel text-center py-4 text-muted" style={{ gridColumn: '1 / -1' }}>Sem dados de turnos para exibir medidores.</div>
+                ) : (
+                   shiftSummaryData.shifts.map((shift, idx) => {
+                      const gaugeColor = shift.status === 'success' || shift.status === 'excellent' ? '#2ea043' : 
+                                         shift.status === 'primary' || shift.status === 'good' ? '#0066ff' : 
+                                         shift.status === 'warning' ? '#d29922' : '#f85149';
+                      const strokeDashArray = 251.2;
+                      const fillPercent = Math.min(shift.oee, 100) / 100;
+                      const strokeDashOffset = strokeDashArray - (strokeDashArray * fillPercent);
+                      
+                      return (
+                         <div key={idx} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: gaugeColor }}></div>
+                            <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', color: 'var(--text-secondary)' }}>{shift.name}</h4>
+                            <div style={{ padding: '1rem 0', width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+                               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -10%)', textAlign: 'center' }}>
+                                  <div style={{ fontSize: '2.5rem', fontWeight: 800, color: gaugeColor, lineHeight: 1 }}>{shift.oee}%</div>
+                                  <div className="text-sm text-secondary" style={{ marginTop: '0.25rem' }}>OEE</div>
+                               </div>
+                               <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: '250px', overflow: 'visible' }}>
+                                 {/* Fundo do Gauge */}
+                                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="18" strokeLinecap="round" />
+                                 {/* Traço de progresso */}
+                                 <path 
+                                    d="M 20 100 A 80 80 0 0 1 180 100" 
+                                    fill="none" 
+                                    stroke={gaugeColor} 
+                                    strokeWidth="18" 
+                                    strokeLinecap="round"
+                                    strokeDasharray={strokeDashArray}
+                                    strokeDashoffset={strokeDashOffset}
+                                    style={{ transition: 'stroke-dashoffset 1.5s ease-out' }} 
+                                 />
+                               </svg>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: '0.5rem', padding: '1rem 1rem 0 1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div className="text-center" style={{ flex: 1 }}>
+                                 <div className="text-xs text-muted" style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>Produzido</div>
+                                 <div className="font-bold" style={{ fontSize: '1.2rem' }}>{shift.produced} un</div>
+                              </div>
+                              <div style={{ width: '1px', background: 'rgba(255,255,255,0.05)', margin: '0 1rem' }}></div>
+                              <div className="text-center" style={{ flex: 1 }}>
+                                 <div className="text-xs text-muted" style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>Meta</div>
+                                 <div className="font-bold" style={{ fontSize: '1.2rem' }}>{shift.target} un</div>
+                              </div>
+                            </div>
+                         </div>
+                      );
+                   })
+                )}
               </div>
             </div>
 
