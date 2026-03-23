@@ -22,6 +22,13 @@ export default function Reports() {
 
     const fetchReports = async () => {
         try {
+            const { data: compData } = await supabase
+                .from('companies')
+                .select('target_oee')
+                .eq('id', user.company_id)
+                .single();
+            const targetOee = compData?.target_oee || 80;
+
             const { data, error } = await supabase
                 .from('shifts')
                 .select(`
@@ -57,6 +64,7 @@ export default function Reports() {
                     refusePerc: refusePerc,
                     net: shift.net_production,
                     oee: oee > 100 ? 100 : oee,
+                    targetOee: targetOee,
                     status: 'Fechado',
                     downtimes: shift.downtimes || [],
                     scraps: shift.scraps || [],
@@ -212,7 +220,7 @@ export default function Reports() {
                                     <td>{rp.part}</td>
                                     <td>{rp.net} un</td>
                                     <td>
-                                        <span className={"badge " + (rp.oee >= 90 ? 'badge-success' : rp.oee >= 70 ? 'badge-primary' : 'badge-danger')}>
+                                        <span className={"badge " + (rp.oee >= rp.targetOee ? 'badge-success' : rp.oee >= (rp.targetOee - 15) ? 'badge-primary' : 'badge-danger')}>
                                             {rp.oee}%
                                         </span>
                                     </td>

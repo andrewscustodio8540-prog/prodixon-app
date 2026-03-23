@@ -167,6 +167,15 @@ export default function Dashboard() {
 
   const fetchDashboardData = async (dateStr, shiftFilter) => {
     try {
+      const { data: compData } = await supabase
+        .from('companies')
+        .select('target_oee, max_refuse_perc')
+        .eq('id', user.company_id)
+        .single();
+      
+      const companyTargetOee = compData?.target_oee || 80;
+      const companyMaxRefuse = compData?.max_refuse_perc !== undefined && compData?.max_refuse_perc !== null ? compData.max_refuse_perc : 5;
+
       const { data: machinesData, error: mErr } = await supabase
         .from('machines')
         .select('*')
@@ -249,7 +258,7 @@ export default function Dashboard() {
           produced: m.produced,
           target: m.target,
           eff: eff,
-          status: eff >= 90 ? 'excellent' : eff >= 75 ? 'good' : eff >= 50 ? 'warning' : 'danger'
+          status: eff >= companyTargetOee ? 'excellent' : eff >= (companyTargetOee - 15) ? 'good' : eff >= (companyTargetOee - 30) ? 'warning' : 'danger'
         };
       });
 
@@ -282,7 +291,7 @@ export default function Dashboard() {
           refuse: ref,
           producedNet: prodNet,
           oee: eff,
-          status: eff >= 90 ? 'success' : eff >= 75 ? 'primary' : eff >= 50 ? 'warning' : 'danger'
+          status: eff >= companyTargetOee ? 'success' : eff >= (companyTargetOee - 15) ? 'primary' : eff >= (companyTargetOee - 30) ? 'warning' : 'danger'
         };
       }).sort((a, b) => a.machineName.localeCompare(b.machineName) || b.oee - a.oee) || [];
 
@@ -322,7 +331,7 @@ export default function Dashboard() {
         return {
           ...s,
           oee,
-          status: oee >= 90 ? 'success' : oee >= 75 ? 'primary' : oee >= 50 ? 'warning' : 'danger'
+          status: oee >= companyTargetOee ? 'success' : oee >= (companyTargetOee - 15) ? 'primary' : oee >= (companyTargetOee - 30) ? 'warning' : 'danger'
         };
       }).sort((a, b) => b.oee - a.oee);
 
@@ -347,7 +356,9 @@ export default function Dashboard() {
         activeMachines,
         totalMachines,
         oeeGeneral: oeeGeneral > 100 ? 100 : oeeGeneral,
-        refuse: totalRefuse
+        refuse: totalRefuse,
+        targetOee: companyTargetOee,
+        maxRefuse: companyMaxRefuse
       });
       setMachineRanking(top5);
 
@@ -457,7 +468,7 @@ export default function Dashboard() {
               <div className="kpi-content">
                 <p className="kpi-label">Produção Líquida {selectedShiftFilter !== 'ALL' && '(Turno)'}</p>
                 <h3 className="kpi-value">{stats.totalProduced.toLocaleString()} <span className="text-sm">un</span></h3>
-                <p className="kpi-meta text-success">
+                <p className={`kpi-meta ${((stats.totalProduced / stats.totalTarget) * 100) >= (stats.targetOee || 80) ? 'text-success' : 'text-warning'}`}>
                   {((stats.totalProduced / stats.totalTarget) * 100).toFixed(1)}% da Meta
                 </p>
               </div>
@@ -470,7 +481,7 @@ export default function Dashboard() {
               <div className="kpi-content">
                 <p className="kpi-label">Refugo Total</p>
                 <h3 className="kpi-value">{stats.refuse.toLocaleString()} <span className="text-sm">un</span></h3>
-                <p className="kpi-meta text-warning">
+                <p className={`kpi-meta ${stats.totalProduced + stats.refuse > 0 && ((stats.refuse / (stats.totalProduced + stats.refuse)) * 100) > (stats.maxRefuse || 5) ? 'text-danger' : 'text-success'}`}>
                   {stats.totalProduced + stats.refuse > 0 ? ((stats.refuse / (stats.totalProduced + stats.refuse)) * 100).toFixed(1) : 0}% de perda
                 </p>
               </div>

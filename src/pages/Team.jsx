@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Shield, ShieldAlert, KeyRound, Copy, CheckCircle2, User, UserCog, Trash2 } from 'lucide-react';
+import { Shield, ShieldAlert, KeyRound, Copy, CheckCircle2, User, UserCog, Trash2, Target, Percent } from 'lucide-react';
 
 export default function Team() {
     const { user } = useAuth();
@@ -9,6 +9,9 @@ export default function Team() {
     const [loading, setLoading] = useState(true);
     const [companyDetails, setCompanyDetails] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [targetOee, setTargetOee] = useState(80);
+    const [maxRefuse, setMaxRefuse] = useState(5);
+    const [savingSettings, setSavingSettings] = useState(false);
 
     useEffect(() => {
         if (user?.company_id) {
@@ -28,6 +31,8 @@ export default function Team() {
 
             if (compErr) throw compErr;
             setCompanyDetails(compData);
+            if (compData.target_oee) setTargetOee(compData.target_oee);
+            if (compData.max_refuse_perc !== undefined && compData.max_refuse_perc !== null) setMaxRefuse(compData.max_refuse_perc);
 
             // Fetch Team Members
             // Note: We are fetching from the `profiles` table which stores the app user data
@@ -53,6 +58,26 @@ export default function Team() {
             navigator.clipboard.writeText(companyDetails.join_code);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        setSavingSettings(true);
+        try {
+            const { error } = await supabase
+                .from('companies')
+                .update({ 
+                    target_oee: Number(targetOee), 
+                    max_refuse_perc: Number(maxRefuse) 
+                })
+                .eq('id', user.company_id);
+            if (error) throw error;
+            alert("Metas atualizadas com sucesso!");
+        } catch (err) {
+            alert(`Erro ao salvar metas: ${err.message}`);
+        } finally {
+            setSavingSettings(false);
         }
     };
 
@@ -132,9 +157,54 @@ export default function Team() {
 
             <div className="dashboard-content team-grid">
 
-                {/* Invite Code Panel */}
-                <div className="glass-panel animate-slide-up" style={{ alignSelf: 'start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignSelf: 'start' }}>
+                    {/* Settings Panel */}
+                    <div className="glass-panel animate-slide-up">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                            <div className="kpi-icon-wrapper primary" style={{ width: '40px', height: '40px' }}><Target size={20} /></div>
+                            <h3 style={{ margin: 0 }}>Política de Qualidade</h3>
+                        </div>
+                        <p className="text-sm text-secondary" style={{ marginBottom: '1.5rem' }}>
+                            Defina as metas da sua empresa. Esses valores ajustarão as cores verde, amarelo e vermelho do Dashboard.
+                        </p>
+                        <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <label className="text-secondary text-sm" style={{ display: 'block', marginBottom: '0.5rem' }}>Meta de Produtividade (OEE %)</label>
+                                <div className="search-box" style={{ width: '100%' }}>
+                                    <Target size={16} className="text-muted" />
+                                    <input 
+                                        type="number" 
+                                        className="input-transparent" 
+                                        min="1" max="100" 
+                                        value={targetOee} 
+                                        onChange={(e) => setTargetOee(e.target.value)} 
+                                        required 
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-secondary text-sm" style={{ display: 'block', marginBottom: '0.5rem' }}>Tolerância Máxima de Refugo (%)</label>
+                                <div className="search-box" style={{ width: '100%' }}>
+                                    <Percent size={16} className="text-muted" />
+                                    <input 
+                                        type="number" 
+                                        className="input-transparent" 
+                                        min="0" max="100" step="0.1" 
+                                        value={maxRefuse} 
+                                        onChange={(e) => setMaxRefuse(e.target.value)} 
+                                        required 
+                                    />
+                                </div>
+                            </div>
+                            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }} disabled={savingSettings}>
+                                {savingSettings ? 'Salvando...' : 'Salvar Metas'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Invite Code Panel */}
+                    <div className="glass-panel animate-slide-up">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                         <div className="kpi-icon-wrapper success" style={{ width: '40px', height: '40px' }}><KeyRound size={20} /></div>
                         <h3 style={{ margin: 0 }}>Código de Convite</h3>
                     </div>
@@ -150,6 +220,7 @@ export default function Team() {
                         </button>
                     </div>
                     {copied && <span className="text-success text-sm" style={{ display: 'block', textAlign: 'center', marginTop: '0.5rem' }}>Código copiado!</span>}
+                    </div>
                 </div>
 
                 {/* Team Members List */}
@@ -232,6 +303,9 @@ export default function Team() {
         .team-grid {
           grid-template-columns: minmax(300px, 1fr) 2fr;
         }
+
+        .search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem 1rem; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); }
+        .input-transparent { background: transparent; border: none; color: white; outline: none; width: 100%; }
 
         .join-code-box {
           background: rgba(46, 160, 67, 0.1);
