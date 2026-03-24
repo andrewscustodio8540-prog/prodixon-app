@@ -653,15 +653,13 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Gráfico 1: Produtividade (OEE) */}
             <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
-                 <h3 className="section-title" style={{ margin: 0 }}>Produtividade (OEE) e Refugo - Evolução Mensal</h3>
-                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <span className="text-success text-sm font-medium" style={{ background: 'rgba(46, 160, 67, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Meta: {companyPolicy.targetOee}%</span>
-                    <span className="text-warning text-sm font-medium" style={{ background: 'rgba(210, 153, 34, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Tolerância Refugo: {companyPolicy.maxRefuse}%</span>
-                 </div>
+                 <h3 className="section-title" style={{ margin: 0 }}>Produtividade (OEE) - Comparativo Mensal dos Turnos</h3>
+                 <span className="text-success text-sm font-medium" style={{ background: 'rgba(46, 160, 67, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Meta: {companyPolicy.targetOee}%</span>
               </div>
-              <div className="chart-placeholder" style={{ flex: 1, minHeight: '350px', padding: 0 }}>
+              <div className="chart-placeholder" style={{ flex: 1, minHeight: '300px', padding: 0 }}>
                 {monthlyTrendData.length === 0 || (monthlyTrendData.length === 1 && !monthlyTrendData[0]?.['Turno 1 OEE']) ? (
                   <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                     <p className="text-muted text-center" style={{ width: '100%' }}>Aguardando lançamentos no mês selecionado.</p>
@@ -672,30 +670,57 @@ export default function Dashboard() {
                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                      <XAxis dataKey="day" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
                      
-                     {/* Eixo Esq - OEE */}
-                     <YAxis yAxisId="left" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, 110]} />
-                     {/* Eixo Dir - Refugo */}
-                     <YAxis yAxisId="right" orientation="right" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, 'auto']} />
+                     <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, 110]} tickFormatter={(val) => `${val}%`} />
                      
                      <Tooltip 
                         contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                        formatter={(val) => [`${val}%`, 'OEE']}
                      />
                      <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
                      
-                     <ReferenceLine yAxisId="left" y={companyPolicy.targetOee} stroke="#2ea043" strokeDasharray="5 5" strokeWidth={1} label={{ position: 'top', value: `Prod (${companyPolicy.targetOee}%)`, fill: '#2ea043', fontSize: 10 }} />
-                     <ReferenceLine yAxisId="right" y={companyPolicy.maxRefuse} stroke="#d29922" strokeDasharray="5 5" strokeWidth={1} label={{ position: 'top', value: `Ref (${companyPolicy.maxRefuse}%)`, fill: '#d29922', fontSize: 10 }} />
+                     <ReferenceLine y={companyPolicy.targetOee} stroke="#eab308" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `Meta Produtividade ${companyPolicy.targetOee}%`, fill: '#eab308', fontSize: 12 }} />
                      
-                     {/* Quality (OEE) Lines */}
-                     <Line yAxisId="left" type="monotone" connectNulls dataKey="Turno 1 OEE" name="T1 Prod %" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                     <Line yAxisId="left" type="monotone" connectNulls dataKey="Turno 2 OEE" name="T2 Prod %" stroke="#a855f7" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                     <Line yAxisId="left" type="monotone" connectNulls dataKey="Turno 3 OEE" name="T3 Prod %" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                     <Line yAxisId="left" type="monotone" connectNulls dataKey="Comercial OEE" name="Com. Prod %" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 1 OEE" name="Turno 1 (Manhã)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 2 OEE" name="Turno 2 (Tarde)" stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 3 OEE" name="Turno 3 (Noite)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Comercial OEE" name="Comercial" stroke="#9ca3af" strokeWidth={2} dot={{ r: 3, fill: '#9ca3af' }} activeDot={{ r: 6 }} />
+                     </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
 
-                     {/* Scrap (Refugo) Lines Modeled with DashArray for distinction */}
-                     <Line yAxisId="right" type="step" connectNulls strokeDasharray="3 3" dataKey="Turno 1 Refugo" name="T1 Ref %" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                     <Line yAxisId="right" type="step" connectNulls strokeDasharray="3 3" dataKey="Turno 2 Refugo" name="T2 Ref %" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                     <Line yAxisId="right" type="step" connectNulls strokeDasharray="3 3" dataKey="Turno 3 Refugo" name="T3 Ref %" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                     <Line yAxisId="right" type="step" connectNulls strokeDasharray="3 3" dataKey="Comercial Refugo" name="Com. Ref %" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+            {/* Gráfico 2: Refugo */}
+            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+                 <h3 className="section-title" style={{ margin: 0 }}>Índice de Refugo - Comparativo Mensal dos Turnos</h3>
+                 <span className="text-danger text-sm font-medium" style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Limite de Refugo: {companyPolicy.maxRefuse}%</span>
+              </div>
+              <div className="chart-placeholder" style={{ flex: 1, minHeight: '300px', padding: 0 }}>
+                {monthlyTrendData.length === 0 || (monthlyTrendData.length === 1 && !monthlyTrendData[0]?.['Turno 1 Refugo']) ? (
+                  <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Aguardando lançamentos no mês selecionado.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                     <LineChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                     <XAxis dataKey="day" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
+                     
+                     <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, 'auto']} tickFormatter={(val) => `${val}%`} />
+                     
+                     <Tooltip 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                        formatter={(val) => [`${val}%`, 'Refugo']}
+                     />
+                     <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
+                     
+                     <ReferenceLine y={companyPolicy.maxRefuse} stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `Limite de Refugo ${companyPolicy.maxRefuse}%`, fill: '#ef4444', fontSize: 12 }} />
+                     
+                     <Line type="linear" connectNulls dataKey="Turno 1 Refugo" name="Turno 1 (Manhã)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 2 Refugo" name="Turno 2 (Tarde)" stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 3 Refugo" name="Turno 3 (Noite)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Comercial Refugo" name="Comercial" stroke="#9ca3af" strokeWidth={2} dot={{ r: 3, fill: '#9ca3af' }} activeDot={{ r: 6 }} />
                      </LineChart>
                   </ResponsiveContainer>
                 )}
