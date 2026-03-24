@@ -520,62 +520,58 @@ export default function Dashboard() {
           <div className="dashboard-content">
             <div className="chart-section glass-panel animate-fade-in delay-200" style={{ display: 'flex', flexDirection: 'column' }}>
               <h3 className="section-title">Análise de Paradas de Máquina (Minutos)</h3>
-              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+              <div className="chart-placeholder" style={{ flex: 1, padding: '1rem 0', overflowY: 'auto', maxHeight: '350px' }}>
                 {downtimeData.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                     <p className="text-muted text-center" style={{ width: '100%' }}>Nenhuma parada registrada.</p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={downtimeData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                      <XAxis dataKey="name" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
-                      <YAxis stroke="#888" tick={{ fill: '#888' }} />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
-                      />
-                      <Bar dataKey="value" name="Minutos Parados" radius={[4, 4, 0, 0]}>
-                        {downtimeData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', paddingRight: '1rem' }}>
+                     {downtimeData.map((item, idx) => {
+                        const maxVal = Math.max(...downtimeData.map(d => d.value));
+                        const pct = Math.round((item.value / maxVal) * 100);
+                        return (
+                           <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                                 <span className="text-sm font-medium text-truncate" style={{ color: 'var(--text-primary)', flex: 1 }}>{item.name}</span>
+                                 <span className="text-danger font-bold" style={{ whiteSpace: 'nowrap' }}>{item.value} min</span>
+                              </div>
+                              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                 <div style={{ height: '100%', width: `${pct}%`, background: 'var(--danger-color)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
+                              </div>
+                           </div>
+                        );
+                     })}
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="ranking-section glass-panel animate-fade-in delay-300">
+            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ display: 'flex', flexDirection: 'column' }}>
               <h3 className="section-title">Análise de Refugos e Perdas (Qtd)</h3>
-              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+              <div className="chart-placeholder" style={{ flex: 1, padding: '1rem 0', overflowY: 'auto', maxHeight: '350px' }}>
                 {scrapData.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                     <p className="text-muted text-center" style={{ width: '100%' }}>Nenhum refugo registrado.</p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={scrapData}
-                        cx="50%"
-                        cy="45%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {scrapData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
-                        itemStyle={{ color: '#fff' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', paddingRight: '1rem' }}>
+                     {scrapData.map((item, idx) => {
+                        const totalScrap = scrapData.reduce((acc, curr) => acc + curr.value, 0);
+                        const pct = Math.round((item.value / totalScrap) * 100);
+                        return (
+                           <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                                 <span className="text-sm font-medium text-truncate" style={{ color: 'var(--text-primary)', flex: 1 }}>{item.name}</span>
+                                 <span className="text-warning font-bold" style={{ whiteSpace: 'nowrap' }}>{item.value} un <span className="text-muted text-xs">({pct}%)</span></span>
+                              </div>
+                              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                 <div style={{ height: '100%', width: `${pct}%`, background: 'var(--warning-color)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
+                              </div>
+                           </div>
+                        );
+                     })}
+                  </div>
                 )}
               </div>
             </div>
