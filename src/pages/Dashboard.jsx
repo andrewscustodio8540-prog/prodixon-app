@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, Settings, AlertCircle, CheckCircle2, Calendar, Factory, BarChart2, LayoutDashboard, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line, ReferenceLine, CartesianGrid } from 'recharts';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -25,6 +25,8 @@ export default function Dashboard() {
   // Chart Data States
   const [downtimeData, setDowntimeData] = useState([]);
   const [scrapData, setScrapData] = useState([]);
+  const [monthlyTrendData, setMonthlyTrendData] = useState([]);
+  const [companyPolicy, setCompanyPolicy] = useState({ targetOee: 80, maxRefuse: 5 });
 
   // Detailed Table Data State
   const [detailedShifts, setDetailedShifts] = useState([]);
@@ -162,9 +164,79 @@ export default function Dashboard() {
   useEffect(() => {
     if (user?.company_id) {
       fetchDashboardData(selectedDate, selectedShiftFilter);
+      fetchMonthlyTrendData(selectedDate);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, selectedDate, selectedShiftFilter]);
+
+  const fetchMonthlyTrendData = async (dateStr) => {
+    try {
+      const yearMonth = dateStr.substring(0, 7);
+      const startDate = `${yearMonth}-01`;
+      const dateObj = new Date(dateStr + 'T00:00:00');
+      const lastDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+      const endDate = `${yearMonth}-${lastDay}`;
+      
+      const { data: compData } = await supabase
+        .from('companies')
+        .select('target_oee, max_refuse_perc')
+        .eq('id', user.company_id)
+        .single();
+        
+      setCompanyPolicy({ 
+          targetOee: compData?.target_oee || 80, 
+          maxRefuse: compData?.max_refuse_perc !== undefined ? compData.max_refuse_perc : 0.8 
+      });
+
+      const { data: monthShifts, error } = await supabase
+        .from('shifts')
+        .select(`date, shift_number, produced_gross, refuse, net_production, target, machines(target_per_shift)`)
+        .eq('company_id', user.company_id)
+        .gte('date', startDate)
+        .lte('date', endDate);
+      
+      if (error) throw error;
+
+      const groupedByDayAndShift = {};
+      monthShifts?.forEach(shift => {
+        const day = parseInt(shift.date.split('-')[2], 10);
+        const sName = SHIFT_MAP[shift.shift_number] || `Turno ${shift.shift_number}`;
+        const sKey = sName.includes('1') ? 'Turno 1' : sName.includes('2') ? 'Turno 2' : sName.includes('3') ? 'Turno 3' : 'Comercial';
+        
+        if (!groupedByDayAndShift[day]) groupedByDayAndShift[day] = {};
+        if (!groupedByDayAndShift[day][sKey]) groupedByDayAndShift[day][sKey] = { target: 0, prod: 0, ref: 0, gross: 0 };
+        
+        const targ = shift.target || shift.machines?.target_per_shift || 1;
+        const prodGross = shift.produced_gross || 0;
+        const ref = shift.refuse || 0;
+        const prodNet = shift.net_production !== undefined ? shift.net_production : Math.max(0, prodGross - ref);
+
+        groupedByDayAndShift[day][sKey].target += targ;
+        groupedByDayAndShift[day][sKey].prod += prodNet;
+        groupedByDayAndShift[day][sKey].gross += prodGross;
+        groupedByDayAndShift[day][sKey].ref += ref;
+      });
+
+      const daysInMonth = Array.from({length: lastDay}, (_, i) => i + 1);
+      const aggregatedData = daysInMonth.map(d => {
+         const row = { day: d };
+         ['Turno 1', 'Turno 2', 'Turno 3', 'Comercial'].forEach(sk => {
+            const shiftStats = groupedByDayAndShift[d]?.[sk];
+            if (shiftStats && shiftStats.target > 0) {
+               row[`${sk} OEE`] = Math.round((shiftStats.prod / shiftStats.target) * 100);
+               row[`${sk} Refugo`] = Number(((shiftStats.ref / shiftStats.gross) * 100).toFixed(2)) || 0;
+            } else {
+               row[`${sk} OEE`] = null;
+               row[`${sk} Refugo`] = null;
+            }
+         });
+         return row;
+      });
+      setMonthlyTrendData(aggregatedData);
+    } catch (err) {
+      console.error('Error fetching monthly trend:', err);
+    }
+  };
 
   const fetchDashboardData = async (dateStr, shiftFilter) => {
     try {
@@ -576,39 +648,64 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1' }}>
-              <h3 className="section-title">Ranking de Máquinas (Eficiência do Recorte)</h3>
-              <div className="chart-placeholder" style={{ height: '200px', padding: 0 }}>
-                {chartData.length === 0 ? (
+            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+                 <h3 className="section-title" style={{ margin: 0 }}>Produtividade (OEE) - Comparativo Mensal dos Turnos</h3>
+                 <span className="text-success text-sm font-medium" style={{ background: 'rgba(46, 160, 67, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Meta: {companyPolicy.targetOee}%</span>
+              </div>
+              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+                {monthlyTrendData.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <p className="text-muted text-center" style={{ width: '100%' }}>Sem dados para exibir.</p>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Carregando dados mensais.</p>
                   </div>
                 ) : (
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div className="bar-chart-mock">
-                      {chartData.map((item, i) => {
-                        const actualHeight = Math.min((item.produced / item.target) * 100, 100);
-                        return (
-                          <div key={i} className="bar-group" title={`${item.name} - Prod: ${item.produced} / Meta: ${item.target}`}>
-                            <div className="bar target" style={{ height: '100%' }}></div>
-                            <div className="bar actual" style={{ height: `${actualHeight}%` }}></div>
-                            <span className="bar-label">{item.id}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <ResponsiveContainer width="100%" height="100%">
+                     <LineChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                     <XAxis dataKey="day" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
+                     <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, 110]} />
+                     <Tooltip 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                     />
+                     <Legend verticalAlign="top" height={36} iconType="circle" />
+                     <ReferenceLine y={companyPolicy.targetOee} stroke="#2ea043" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'Meta de Qualidade', fill: '#2ea043', fontSize: 12 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 1 OEE" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 2 OEE" stroke="#a855f7" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 3 OEE" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Comercial OEE" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
 
-                    <div className="chart-legend" style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: 'auto', paddingTop: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(46, 160, 67, 0.8)' }}></div>
-                        <span className="text-sm font-medium">Meta do Turno</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'linear-gradient(180deg, #0066ff 0%, #0052cc 100%)' }}></div>
-                        <span className="text-sm font-medium">Produzido Líquido</span>
-                      </div>
-                    </div>
+            <div className="ranking-section glass-panel animate-fade-in delay-300" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+                 <h3 className="section-title" style={{ margin: 0 }}>Índice de Refugo - Comparativo Mensal dos Turnos</h3>
+                 <span className="text-warning text-sm font-medium" style={{ background: 'rgba(210, 153, 34, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '12px' }}>Limite Tolerável: {companyPolicy.maxRefuse}%</span>
+              </div>
+              <div className="chart-placeholder" style={{ flex: 1, height: '300px', padding: 0 }}>
+                {monthlyTrendData.length === 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <p className="text-muted text-center" style={{ width: '100%' }}>Carregando dados mensais.</p>
                   </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                     <LineChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                     <XAxis dataKey="day" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
+                     <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} />
+                     <Tooltip 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
+                     />
+                     <Legend verticalAlign="top" height={36} iconType="circle" />
+                     <ReferenceLine y={companyPolicy.maxRefuse} stroke="#d29922" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'Limite Tolerável', fill: '#d29922', fontSize: 12 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 1 Refugo" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 2 Refugo" stroke="#ec4899" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Turno 3 Refugo" stroke="#f97316" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     <Line type="monotone" connectNulls dataKey="Comercial Refugo" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                     </LineChart>
+                  </ResponsiveContainer>
                 )}
               </div>
             </div>
