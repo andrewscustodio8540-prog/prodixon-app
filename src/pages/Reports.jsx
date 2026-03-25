@@ -13,6 +13,13 @@ export default function Reports() {
     const [selectedShift, setSelectedShift] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const SHIFT_MAP = {
+        '1': '06:00 às 14:00',
+        '2': '14:00 às 22:00',
+        '3': '22:00 às 06:00',
+        'Comercial': '08:00 às 17:00'
+    };
+
     useEffect(() => {
         if (user?.company_id) {
             fetchReports();
@@ -49,12 +56,19 @@ export default function Reports() {
                 const oee = Math.round((shift.net_production / target) * 100) || 0;
                 const perf = Math.round((shift.produced_gross / target) * 100) || 0;
                 const refusePerc = shift.produced_gross > 0 ? ((shift.refuse / shift.produced_gross) * 100).toFixed(1) : 0;
+                
+                let shiftDisplay = `Turno ${shift.shift_number}`;
+                if (shift.shift_number === SHIFT_MAP['1']) shiftDisplay = 'Turno 1';
+                else if (shift.shift_number === SHIFT_MAP['2']) shiftDisplay = 'Turno 2';
+                else if (shift.shift_number === SHIFT_MAP['3']) shiftDisplay = 'Turno 3';
+                else if (shift.shift_number === SHIFT_MAP['Comercial']) shiftDisplay = 'Comercial';
+                else if (['1', '2', '3'].includes(String(shift.shift_number))) shiftDisplay = `Turno ${shift.shift_number}`;
 
                 return {
                     id: shift.id.substring(0, 8),
                     originalId: shift.id,
                     date: new Date(shift.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
-                    shift: `Turno ${shift.shift_number}`,
+                    shift: shiftDisplay,
                     machine: shift.machines?.code || 'Desconhecida',
                     operator: shift.operators?.name || 'Desconhecido',
                     part: shift.parts?.name || 'N/A',
@@ -132,7 +146,7 @@ export default function Reports() {
 
         if (shift) {
             filtered = filtered.filter(rp => {
-                if (shift === 'Comercial') return rp.shift === 'Turno Comercial';
+                if (shift === 'Comercial') return rp.shift === 'Comercial';
                 return rp.shift === `Turno ${shift}`;
             });
         }
