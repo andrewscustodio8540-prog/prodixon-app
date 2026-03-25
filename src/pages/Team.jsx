@@ -65,11 +65,14 @@ export default function Team() {
         e.preventDefault();
         setSavingSettings(true);
         try {
-            const parsedTarget = Number(String(targetOee).replace(',', '.'));
-            const parsedRefuse = Number(String(maxRefuse).replace(',', '.'));
+            const cleanTarget = String(targetOee).replace(/[^0-9.,]/g, '').replace(',', '.');
+            const cleanRefuse = String(maxRefuse).replace(/[^0-9.,]/g, '').replace(',', '.');
             
-            if (isNaN(parsedTarget) || isNaN(parsedRefuse)) {
-               alert("Valores inválidos. Use apenas números, ponto ou vírgula.");
+            const parsedTarget = Number(cleanTarget);
+            const parsedRefuse = Number(cleanRefuse);
+            
+            if (isNaN(parsedTarget) || isNaN(parsedRefuse) || cleanTarget === '' || cleanRefuse === '') {
+               alert("Valores inválidos. Use apenas números, ponto ou vírgula. (Não insira símbolo de %)");
                setSavingSettings(false);
                return;
             }
