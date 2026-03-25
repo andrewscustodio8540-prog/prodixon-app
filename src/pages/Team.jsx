@@ -65,11 +65,20 @@ export default function Team() {
         e.preventDefault();
         setSavingSettings(true);
         try {
+            const parsedTarget = Number(String(targetOee).replace(',', '.'));
+            const parsedRefuse = Number(String(maxRefuse).replace(',', '.'));
+            
+            if (isNaN(parsedTarget) || isNaN(parsedRefuse)) {
+               alert("Valores inválidos. Use apenas números, ponto ou vírgula.");
+               setSavingSettings(false);
+               return;
+            }
+
             const { error } = await supabase
                 .from('companies')
                 .update({ 
-                    target_oee: Number(targetOee), 
-                    max_refuse_perc: Number(maxRefuse) 
+                    target_oee: parsedTarget, 
+                    max_refuse_perc: parsedRefuse 
                 })
                 .eq('id', user.company_id);
             if (error) throw error;
@@ -187,12 +196,12 @@ export default function Team() {
                                 <div className="search-box" style={{ width: '100%' }}>
                                     <Percent size={16} className="text-muted" />
                                     <input 
-                                        type="number" 
+                                        type="text" 
                                         className="input-transparent" 
-                                        min="0" max="100" step="0.1" 
                                         value={maxRefuse} 
                                         onChange={(e) => setMaxRefuse(e.target.value)} 
                                         required 
+                                        placeholder="Ex: 0.8"
                                     />
                                 </div>
                             </div>

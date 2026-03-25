@@ -678,11 +678,11 @@ export default function Dashboard() {
                      />
                      <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
                      
-                     <ReferenceLine y={companyPolicy.targetOee} stroke="#eab308" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `Meta Produtividade ${companyPolicy.targetOee}%`, fill: '#eab308', fontSize: 12 }} />
+                     <ReferenceLine y={companyPolicy.targetOee} stroke="#2ea043" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `Meta Produtividade ${companyPolicy.targetOee}%`, fill: '#2ea043', fontSize: 12 }} />
                      
-                     <Line type="linear" connectNulls dataKey="Turno 1 OEE" name="Turno 1 (Manhã)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
-                     <Line type="linear" connectNulls dataKey="Turno 2 OEE" name="Turno 2 (Tarde)" stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} activeDot={{ r: 6 }} />
-                     <Line type="linear" connectNulls dataKey="Turno 3 OEE" name="Turno 3 (Noite)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 1 OEE" name="Turno 1 (Azul)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 2 OEE" name="Turno 2 (Roxo)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 3 OEE" name="Turno 3 (Laranja)" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: '#f97316' }} activeDot={{ r: 6 }} />
                      <Line type="linear" connectNulls dataKey="Comercial OEE" name="Comercial" stroke="#9ca3af" strokeWidth={2} dot={{ r: 3, fill: '#9ca3af' }} activeDot={{ r: 6 }} />
                      </LineChart>
                   </ResponsiveContainer>
@@ -717,9 +717,9 @@ export default function Dashboard() {
                      
                      <ReferenceLine y={companyPolicy.maxRefuse} stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `Limite de Refugo ${companyPolicy.maxRefuse}%`, fill: '#ef4444', fontSize: 12 }} />
                      
-                     <Line type="linear" connectNulls dataKey="Turno 1 Refugo" name="Turno 1 (Manhã)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
-                     <Line type="linear" connectNulls dataKey="Turno 2 Refugo" name="Turno 2 (Tarde)" stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} activeDot={{ r: 6 }} />
-                     <Line type="linear" connectNulls dataKey="Turno 3 Refugo" name="Turno 3 (Noite)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 1 Refugo" name="Turno 1 (Azul)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 2 Refugo" name="Turno 2 (Roxo)" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: '#a855f7' }} activeDot={{ r: 6 }} />
+                     <Line type="linear" connectNulls dataKey="Turno 3 Refugo" name="Turno 3 (Laranja)" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: '#f97316' }} activeDot={{ r: 6 }} />
                      <Line type="linear" connectNulls dataKey="Comercial Refugo" name="Comercial" stroke="#9ca3af" strokeWidth={2} dot={{ r: 3, fill: '#9ca3af' }} activeDot={{ r: 6 }} />
                      </LineChart>
                   </ResponsiveContainer>
