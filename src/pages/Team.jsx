@@ -77,15 +77,31 @@ export default function Team() {
                return;
             }
 
-            const { error } = await supabase
+            const { data: updatedData, error } = await supabase
                 .from('companies')
                 .update({ 
                     target_oee: parsedTarget, 
                     max_refuse_perc: parsedRefuse 
                 })
-                .eq('id', user.company_id);
+                .eq('id', user.company_id)
+                .select();
+                
             if (error) throw error;
-            alert("Metas atualizadas com sucesso!");
+            
+            if (!updatedData || updatedData.length === 0) {
+                throw new Error("Update rejeitado pelo banco de dados. Você pode não ter permissão de edição (RLS Policy).");
+            }
+            
+            // Retorna visualmente os valores reais que o banco aceitou e persistiu
+            setTargetOee(updatedData[0].target_oee);
+            setMaxRefuse(updatedData[0].max_refuse_perc);
+            
+            if (Number(updatedData[0].max_refuse_perc) !== parsedRefuse) {
+               alert(`Atenção: O banco de dados arredondou ou rejeitou o decimal. Salvou: ${updatedData[0].max_refuse_perc}%. Isso ocorre se a sua coluna no Supabase foi criada como 'integer' ao invés de 'numeric'.`);
+            } else {
+               alert(`Metas do banco atualizadas com sucesso! OEE: ${updatedData[0].target_oee}% | Refugo: ${updatedData[0].max_refuse_perc}%`);
+            }
+            
         } catch (err) {
             alert(`Erro ao salvar metas: ${err.message}`);
         } finally {
