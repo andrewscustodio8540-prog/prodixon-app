@@ -10,6 +10,7 @@ export default function Reports() {
     const [filteredReports, setFilteredReports] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
+    const [selectedShift, setSelectedShift] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -82,7 +83,7 @@ export default function Reports() {
 
     const handleGeneratePDF = () => {
         try {
-            generateReportPDF(filteredReports, user?.company_id ? user?.full_name : 'PRODIXON');
+            generateReportPDF(filteredReports, user?.company_id ? user?.full_name : 'PRODIXON', selectedDate, selectedShift);
         } catch (error) {
             console.error(error);
             alert(`Erro ao gerar PDF: ${error.message}`);
@@ -109,7 +110,7 @@ export default function Reports() {
         }
     };
 
-    const filterData = (term, date) => {
+    const filterData = (term, date, shift) => {
         let filtered = reports;
 
         if (term) {
@@ -129,19 +130,32 @@ export default function Reports() {
             filtered = filtered.filter(rp => rp.date === formattedDateFilter);
         }
 
+        if (shift) {
+            filtered = filtered.filter(rp => {
+                if (shift === 'Comercial') return rp.shift === 'Turno Comercial';
+                return rp.shift === `Turno ${shift}`;
+            });
+        }
+
         setFilteredReports(filtered);
     };
 
     const handleSearch = (e) => {
         const term = e.target.value.toLowerCase();
         setSearchTerm(term);
-        filterData(term, selectedDate);
+        filterData(term, selectedDate, selectedShift);
     };
 
     const handleDateChange = (e) => {
         const date = e.target.value;
         setSelectedDate(date);
-        filterData(searchTerm, date);
+        filterData(searchTerm, date, selectedShift);
+    };
+
+    const handleShiftChange = (e) => {
+        const shift = e.target.value;
+        setSelectedShift(shift);
+        filterData(searchTerm, selectedDate, shift);
     };
 
     return (
@@ -189,6 +203,21 @@ export default function Reports() {
                                     <span style={{ fontSize: '12px' }}>✕</span>
                                 </button>
                             )}
+                        </div>
+
+                        <div className="search-box" style={{ width: 'auto', padding: '0.25rem 1rem', minWidth: '150px', flex: '1 1 auto' }}>
+                            <select 
+                                className="input-transparent"
+                                value={selectedShift}
+                                onChange={handleShiftChange}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <option value="" style={{ color: '#000' }}>Todos os Turnos</option>
+                                <option value="1" style={{ color: '#000' }}>Turno 1 (Manhã)</option>
+                                <option value="2" style={{ color: '#000' }}>Turno 2 (Tarde)</option>
+                                <option value="3" style={{ color: '#000' }}>Turno 3 (Noite)</option>
+                                <option value="Comercial" style={{ color: '#000' }}>Comercial</option>
+                            </select>
                         </div>
                     </div>
                 </div>

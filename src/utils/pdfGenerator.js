@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export const generateReportPDF = (reports, companyName = 'PRODIXON') => {
+export const generateReportPDF = (reports, companyName = 'PRODIXON', filterDate = '', filterShift = '') => {
     if (!reports || reports.length === 0) {
         alert("Não há dados para gerar o relatório.");
         return;
@@ -25,8 +25,23 @@ export const generateReportPDF = (reports, companyName = 'PRODIXON') => {
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text('Relatório de Fechamento de Produção', 14, 30);
 
+    let periodText = 'Período: Todos os Registros';
+    if (filterDate && filterShift) {
+        const [y, m, d] = filterDate.split('-');
+        periodText = `Filtro: Data ${d}/${m}/${y} | Turno ${filterShift}`;
+    } else if (filterDate) {
+        const [y, m, d] = filterDate.split('-');
+        periodText = `Filtro: Relatório Diário de ${d}/${m}/${y}`;
+    } else if (filterShift) {
+        periodText = `Filtro: Todos os dias | Turno ${filterShift}`;
+    }
+
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text(periodText, 14, 37);
+
     doc.setFontSize(10);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 38);
+    doc.text(`Criado em: ${new Date().toLocaleString('pt-BR')}`, 14, 43);
 
     // Table Data
     const tableColumn = ["Data / Turno", "Mák / Op / Peça", "Produção & Eficiência", "Refugos & Qualidade", "Paradas & Ocorrências"];
@@ -70,7 +85,7 @@ export const generateReportPDF = (reports, companyName = 'PRODIXON') => {
 
     // Generate Table using the imported autoTable plugin
     autoTable(doc, {
-        startY: 45,
+        startY: 48,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
