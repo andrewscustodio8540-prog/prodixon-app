@@ -74,6 +74,14 @@ export default function Dashboard() {
     shiftBreakdown: []
   });
 
+  const [lossData, setLossData] = useState({
+    loading: false,
+    scraps: [],
+    downtimes: [],
+    totalScrapPieces: 0,
+    totalDowntimeMinutes: 0
+  });
+
   const SHIFT_MAP = {
     '1': '06:00 às 14:00',
     '2': '14:00 às 22:00',
@@ -84,6 +92,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (user?.company_id && activeTab === 'oee_analysis') {
       fetchAnalysisData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, activeTab, analysisPeriod, analysisDate]);
+
+  useEffect(() => {
+    if (user?.company_id && activeTab === 'loss_analysis') {
+      fetchLossData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, activeTab, analysisPeriod, analysisDate]);
@@ -158,6 +173,83 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error fetching analysis', err);
       setAnalysisData(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const fetchLossData = async () => {
+    setLossData(prev => ({ ...prev, loading: true }));
+    try {
+      const [y, m, d] = analysisDate.split('-');
+      let startDate = new Date(y, m - 1, d);
+      let endDate = new Date(y, m - 1, d);
+
+      if (analysisPeriod === 'weekly') {
+        const day = startDate.getDay();
+        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+        startDate.setDate(diff);
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+      } else if (analysisPeriod === 'monthly') {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      }
+
+      const startStr = startDate.toLocaleDateString('en-CA');
+      const endStr = endDate.toLocaleDateString('en-CA');
+
+      const { data: shiftsData, error: sErr } = await supabase
+        .from('shifts')
+        .select('id, date, scraps, downtimes')
+        .eq('company_id', user.company_id)
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+      if (sErr) throw sErr;
+
+      const scrapsMap = {};
+      const downtimesMap = {};
+      let totalScrapPieces = 0;
+      let totalDowntimeMinutes = 0;
+
+      shiftsData?.forEach(shift => {
+        if (shift.scraps && Array.isArray(shift.scraps)) {
+          shift.scraps.forEach(sc => {
+            const reason = sc.reason || 'Desconhecido';
+            const qty = Number(sc.quantity) || 0;
+            if (!scrapsMap[reason]) scrapsMap[reason] = 0;
+            scrapsMap[reason] += qty;
+            totalScrapPieces += qty;
+          });
+        }
+        if (shift.downtimes && Array.isArray(shift.downtimes)) {
+          shift.downtimes.forEach(dw => {
+            const reason = dw.reason || 'Desconhecido';
+            const mins = Number(dw.minutes) || 0;
+            if (!downtimesMap[reason]) downtimesMap[reason] = 0;
+            downtimesMap[reason] += mins;
+            totalDowntimeMinutes += mins;
+          });
+        }
+      });
+
+      const processedScraps = Object.entries(scrapsMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      const processedDowntimes = Object.entries(downtimesMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      setLossData({
+        loading: false,
+        scraps: processedScraps,
+        downtimes: processedDowntimes,
+        totalScrapPieces,
+        totalDowntimeMinutes
+      });
+    } catch (err) {
+      console.error('Error fetching loss analysis', err);
+      setLossData(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -484,6 +576,13 @@ export default function Dashboard() {
             onClick={() => setActiveTab('oee_analysis')}
           >
             <BarChart2 size={18} /> Análise Histórica (OEE)
+          </button>
+          <button
+            className={`btn ${activeTab === 'loss_analysis' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ border: 'none', whiteSpace: 'nowrap' }}
+            onClick={() => setActiveTab('loss_analysis')}
+          >
+            <AlertCircle size={18} /> Análise de Perdas
           </button>
         </div>
       </div>
@@ -1002,7 +1101,7 @@ export default function Dashboard() {
              </>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'oee_analysis' ? (
         /* --- OEE ANALYSIS TAB --- */
         <div className="oee-analysis-tab animate-fade-in">
           <div className="filter-bar glass-panel" style={{ display: 'flex', gap: '1rem', padding: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1095,7 +1194,121 @@ export default function Dashboard() {
             </>
           )}
         </div>
-      )}
+      ) : activeTab === 'loss_analysis' ? (
+        /* --- LOSS ANALYSIS TAB --- */
+        <div className="loss-analysis-tab animate-fade-in">
+          <div className="filter-bar glass-panel" style={{ display: 'flex', gap: '1rem', padding: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: '150px' }}>
+              <label className="form-label text-sm">Visualizar por</label>
+              <select
+                className="input-field"
+                style={{ padding: '0.5rem 1rem' }}
+                value={analysisPeriod}
+                onChange={(e) => setAnalysisPeriod(e.target.value)}
+              >
+                <option value="daily">Diário (Um dia específico)</option>
+                <option value="weekly">Semanal (Semana da data)</option>
+                <option value="monthly">Mensal (Mês da data)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: '200px' }}>
+              <label className="form-label text-sm">Data de Referência</label>
+              <div className="input-with-icon">
+                <Calendar className="input-icon" size={16} style={{ left: '10px' }} />
+                <input
+                  type={analysisPeriod === 'monthly' ? "month" : "date"}
+                  className="input-field"
+                  style={{ paddingLeft: '2.2rem', padding: '0.5rem 1rem 0.5rem 2.2rem', colorScheme: 'dark' }}
+                  value={analysisPeriod === 'monthly' ? analysisDate.substring(0, 7) : analysisDate}
+                  onChange={(e) => {
+                    let nextVal = e.target.value;
+                    if (analysisPeriod === 'monthly') nextVal += '-01';
+                    setAnalysisDate(nextVal);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {lossData.loading ? (
+            <div className="text-center py-4"><div className="text-secondary">Carregando mapa de perdas...</div></div>
+          ) : (
+            <>
+              <div className="kpi-grid" style={{ marginBottom: '2rem' }}>
+                <div className="kpi-card glass-panel" style={{ borderTop: '4px solid var(--warning-color)' }}>
+                  <div className="kpi-content">
+                    <p className="kpi-label">Refugo Total no Período</p>
+                    <h3 className="kpi-value text-warning">{lossData.totalScrapPieces.toLocaleString()} un</h3>
+                  </div>
+                </div>
+                <div className="kpi-card glass-panel" style={{ borderTop: '4px solid var(--danger-color)' }}>
+                  <div className="kpi-content">
+                    <p className="kpi-label">Paradas Totais no Período</p>
+                    <h3 className="kpi-value text-danger">{lossData.totalDowntimeMinutes.toLocaleString()} min</h3>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-content" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+                {/* Ranking de Refugos */}
+                <div className="ranking-section glass-panel">
+                  <h3 className="section-title">Maiores Ofensores - Peças Refugadas</h3>
+                  <div className="chart-placeholder" style={{ display: 'block', height: 'auto', maxHeight: '500px', overflowY: 'auto' }}>
+                    {lossData.scraps.length === 0 ? (
+                      <p className="text-muted text-center py-4">Não há apontamentos de refugo neste período.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', paddingRight: '1rem' }}>
+                         {lossData.scraps.map((item, idx) => {
+                            const pct = lossData.totalScrapPieces > 0 ? Math.round((item.value / lossData.totalScrapPieces) * 100) : 0;
+                            return (
+                               <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                                     <span className="text-sm font-medium" style={{ color: 'var(--text-primary)', flex: 1 }}>{idx + 1}. {item.name}</span>
+                                     <span className="text-warning font-bold" style={{ whiteSpace: 'nowrap' }}>{item.value.toLocaleString()} un <span className="text-muted text-xs">({pct}%)</span></span>
+                                  </div>
+                                  <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                     <div style={{ height: '100%', width: `${pct}%`, background: 'var(--warning-color)', borderRadius: '4px' }}></div>
+                                  </div>
+                               </div>
+                            );
+                         })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ranking de Paradas */}
+                <div className="ranking-section glass-panel">
+                  <h3 className="section-title">Maiores Ofensores - Tempo de Parada</h3>
+                  <div className="chart-placeholder" style={{ display: 'block', height: 'auto', maxHeight: '500px', overflowY: 'auto' }}>
+                    {lossData.downtimes.length === 0 ? (
+                      <p className="text-muted text-center py-4">Não há apontamentos de parada neste período.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', paddingRight: '1rem' }}>
+                         {lossData.downtimes.map((item, idx) => {
+                            const pct = lossData.totalDowntimeMinutes > 0 ? Math.round((item.value / lossData.totalDowntimeMinutes) * 100) : 0;
+                            return (
+                               <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                                     <span className="text-sm font-medium" style={{ color: 'var(--text-primary)', flex: 1 }}>{idx + 1}. {item.name}</span>
+                                     <span className="text-danger font-bold" style={{ whiteSpace: 'nowrap' }}>{item.value.toLocaleString()} min <span className="text-muted text-xs">({pct}%)</span></span>
+                                  </div>
+                                  <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                     <div style={{ height: '100%', width: `${pct}%`, background: 'var(--danger-color)', borderRadius: '4px' }}></div>
+                                  </div>
+                               </div>
+                            );
+                         })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
 
       <style>{`
         .dashboard-container {
