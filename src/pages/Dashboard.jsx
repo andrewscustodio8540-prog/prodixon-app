@@ -21,6 +21,7 @@ export default function Dashboard() {
 
   // Shift Filter State
   const [selectedShiftFilter, setSelectedShiftFilter] = useState('ALL');
+  const [lossShiftFilter, setLossShiftFilter] = useState('ALL');
 
   // Chart Data States
   const [downtimeData, setDowntimeData] = useState([]);
@@ -101,7 +102,7 @@ export default function Dashboard() {
       fetchLossData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id, activeTab, analysisPeriod, analysisDate]);
+  }, [user?.company_id, activeTab, analysisPeriod, analysisDate, lossShiftFilter]);
 
   const fetchAnalysisData = async () => {
     setAnalysisData(prev => ({ ...prev, loading: true }));
@@ -212,6 +213,12 @@ export default function Dashboard() {
       let totalDowntimeMinutes = 0;
 
       shiftsData?.forEach(shift => {
+        if (lossShiftFilter !== 'ALL') {
+          if (String(shift.shift_number) !== lossShiftFilter && shift.shift_number !== SHIFT_MAP[lossShiftFilter]) {
+             return;
+          }
+        }
+
         if (shift.scraps && Array.isArray(shift.scraps)) {
           shift.scraps.forEach(sc => {
             const reason = sc.reason || 'Desconhecido';
@@ -1209,6 +1216,22 @@ export default function Dashboard() {
                 <option value="daily">Diário (Um dia específico)</option>
                 <option value="weekly">Semanal (Semana da data)</option>
                 <option value="monthly">Mensal (Mês da data)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0, minWidth: '150px' }}>
+              <label className="form-label text-sm">Turno</label>
+              <select
+                className="input-field"
+                style={{ padding: '0.5rem 1rem' }}
+                value={lossShiftFilter}
+                onChange={(e) => setLossShiftFilter(e.target.value)}
+              >
+                <option value="ALL">Geral (Todos)</option>
+                <option value="1">Turno 1</option>
+                <option value="2">Turno 2</option>
+                <option value="3">Turno 3</option>
+                <option value="comercial">Comercial</option>
               </select>
             </div>
 
