@@ -8,9 +8,9 @@
   "description": "Sistema de Gestão de Produção e OEE (SaaS)",
   "icons": [
     {
-      "src": "logo.png",
+      "src": "logo.jpg",
       "sizes": "192x192 512x512 any",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]
