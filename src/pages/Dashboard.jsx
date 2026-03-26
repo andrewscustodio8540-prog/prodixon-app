@@ -200,7 +200,7 @@ export default function Dashboard() {
 
       const { data: shiftsData, error: sErr } = await supabase
         .from('shifts')
-        .select('id, date, scraps, downtimes')
+        .select('id, date, scraps, downtimes, shift_number')
         .eq('company_id', user.company_id)
         .gte('date', startStr)
         .lte('date', endStr);
